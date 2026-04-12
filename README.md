@@ -138,8 +138,8 @@ The Quantitative Analyst Agent autonomously calls the `run_cross_sectional_backt
 ---
 
 ## 👥 Team Members (Roles)
-- **Danny Atik** - *Project Manager & Prompt Engineer* (Architected AI orchestration pipelines, built Shiny asynchronous hooks, data scaling, and systemic testing loops).
-*(Add your teammates and their roles here if applicable)*
+- **Daniel Atik** - *Project Manager & Prompt Engineer*
+- **Masaab** - *Full Stack Developer*
 
 ---
 
