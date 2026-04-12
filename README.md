@@ -79,8 +79,8 @@ graph TD
 
 1. **Clone & Virtual Environment Configuration**:
     ```bash
-    git clone https://github.com/your-username/factor-workbench.git
-    cd factor-workbench/08_function_calling/TOOL_v2
+    git clone https://github.com/datik01/factor_workbench.git
+    cd factor_workbench
     python3 -m venv venv
     source venv/bin/activate
     ```
@@ -92,7 +92,7 @@ graph TD
     *Ensure you have `shiny`, `pandas`, `numpy`, `plotly`, `requests`, and `beautifulsoup4`.*
 
 3. **Provide API Tokens**:
-    In `/08_function_calling/TOOL_v2/.env`, export your Polygon key to handle the caching backend:
+    In your local root `.env` file, export your Polygon API key to handle the caching backend:
     ```bash
     POLYGON_API_KEY="your_api_key_here"
     ```
