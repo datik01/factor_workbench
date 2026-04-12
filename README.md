@@ -117,6 +117,32 @@ graph TD
 
 ---
 
+## 💼 Business Value for Stakeholders
+*(📝 TODO: Write 3-5 paragraphs here. Explain who your stakeholders are (e.g. Quant Portfolio Managers, Retail Traders) and exactly how the 3 AI agents and algorithmic backtesting tool directly solve their pain points or save them time. Example starting point: Quantitative Portfolio Managers traditionally spend weeks manually querying EDGAR databases, constructing point-in-time survivorship bias filtration maps, and running cross-sectional statistical limits to discover actionable market anomalies. This tool leverages asynchronous LLMs to compress that timeframe from weeks to under 30 seconds...)*
+
+---
+
+## 🔧 AI Agent Tool Parameters (Function Calling)
+The Quantitative Analyst Agent autonomously calls the `run_cross_sectional_backtest` tool dynamically. Below are the exact structural constraints and parameters it processes:
+
+| Parameter Name | Data Type | Purpose & Impact |
+| --- | --- | --- |
+| `tickers` | `list` | Active constituents representing the specific target universe (R2K, S&P 500, or NDX) scraped dynamically from the UI parameters. |
+| `themes` | `list` | Selected macro-factor tilts (e.g., *Momentum*, *Value*, *Volatility*) defining the algorithmic cross-sectional rank evaluations. |
+| `portfolio_size` | `int` | Dictates absolute cutoffs for asset inclusion (defining the size of the long/short basket portfolios). |
+| `strategy_type` | `str` | Sets matrix constraints defining the long-only vs long/short equity algorithmic bounds. |
+| `start_year`/`end_year` | `int` | Chronological bounding limits isolating the test across specific macroeconomic regimes. | 
+
+**Returns**: The tool generates a structured exact `dict` payload holding aggregated compound annual returns, drawdown maps, symmetric Index benchmark calculations (Sharpe Ratio), and the Plotly visualization coordinates, returning it straight into the Ollama Quant Agent for readable synthesis.
+
+---
+
+## 👥 Team Members (Roles)
+- **Danny Atik** - *Project Manager & Prompt Engineer* (Architected AI orchestration pipelines, built Shiny asynchronous hooks, data scaling, and systemic testing loops).
+*(Add your teammates and their roles here if applicable)*
+
+---
+
 ## 🧪 Testing Protocol
 
 The platform explicitly tests mathematical mapping integrations utilizing `unittest.mock`. 
