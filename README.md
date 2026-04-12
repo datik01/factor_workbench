@@ -103,7 +103,14 @@ graph TD
     ollama serve
     ```
 
-5. **Initialize application**:
+5. **(Optional) Bypass API Limits via Cache**:
+    To avoid downloading 4+ years of data per ticker via Polygon and skipping structural API limits, download the `factor_cache_v1.zip` database directly from the **Releases** tab on this Github repository. 
+    ```bash
+    unzip factor_cache_v1.zip -d .
+    ```
+    *This will cleanly inject the `.cache/` folder directly into your root directory so the engine can skip the data-mining phase.*
+
+6. **Initialize application**:
     ```bash
     shiny run --reload app.py
     ```
