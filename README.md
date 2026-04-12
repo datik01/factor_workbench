@@ -138,8 +138,8 @@ The Quantitative Analyst Agent autonomously calls the `run_cross_sectional_backt
 ---
 
 ## 👥 Team Members (Roles)
-- **Daniel Atik** - *Project Manager & Prompt Engineer*
-- **Masaab** - *Full Stack Developer*
+- **Daniel Atik** - *Project Manager & Full Stack Developer*
+- **Masaab** - 
 
 ---
 
