@@ -526,7 +526,19 @@ def server(input, output, session):
                 dynamic_tickers = [t.strip() for t in _f.readlines() if t.strip()]
         
         if not dynamic_tickers:
-            dynamic_tickers = ["AAPL"]
+            import pandas as pd
+            try:
+                if active_universe == "SP500":
+                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+                    dynamic_tickers = df['Symbol'].tolist()
+                elif active_universe == "NDX":
+                    df = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')[4]
+                    dynamic_tickers = df['Ticker'].tolist()
+                else:
+                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+                    dynamic_tickers = df['Symbol'].tolist()
+            except Exception:
+                dynamic_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
         
         try:
             from constituents.universe_builder import build_constituent_timeline
