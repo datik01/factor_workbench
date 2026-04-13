@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from tools import run_cross_sectional_backtest
 from app import THEMES, ALL_TICKERS, CONSTITUENT_TIMELINE
 import json

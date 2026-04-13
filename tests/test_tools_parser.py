@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from constituents.universe_builder import get_latest_constituents
 from tools import run_cross_sectional_backtest
 

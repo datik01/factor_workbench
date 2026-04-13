@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import sys
 import pandas as pd
 from factor_miner import discover_alpha_factors

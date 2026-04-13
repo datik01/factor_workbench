@@ -170,6 +170,7 @@ def discover_alpha_factors(
     pop_size: int = 200, 
     horizon: int = 1,
     fitness_metric: str = "ic",
+    syntax_set: str = "all",
     progress_callback=None
 ):
     """
@@ -208,7 +209,14 @@ def discover_alpha_factors(
         progress_callback(30, "Initializing Genetic Engine (gplearn)...")
 
     # The mathematical bounds the engine is allowed to combine
-    function_set = ['add', 'sub', 'mul', 'div', 'abs', 'log', 'sqrt', cs_rank_func, delay_5, sma_10, sma_20, ts_max_20, ts_min_20]
+    if syntax_set == "linear":
+        function_set = ['add', 'sub', 'mul', 'div', 'abs', 'log', 'sqrt']
+    elif syntax_set == "cross_sectional":
+        function_set = ['add', 'sub', 'mul', 'div', 'abs', cs_rank_func]
+    elif syntax_set == "technical":
+        function_set = ['add', 'sub', 'mul', 'div', delay_5, sma_10, sma_20, ts_max_20, ts_min_20]
+    else:
+        function_set = ['add', 'sub', 'mul', 'div', 'abs', 'log', 'sqrt', cs_rank_func, delay_5, sma_10, sma_20, ts_max_20, ts_min_20]
     
     if fitness_metric == "ic": target_metric = ic_fitness
     elif fitness_metric == "sharpe": target_metric = sharpe_fitness

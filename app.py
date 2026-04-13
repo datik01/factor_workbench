@@ -473,9 +473,10 @@ def server(input, output, session):
                 ui.input_select("miner_universe", "Universe Target", ["R2K", "SP500", "NDX"], selected="SP500"),
                 ui.input_select("miner_horizon", "Optimization Horizon", choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
                 ui.input_select("miner_fitness", "Genetic Fitness Objective", choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)", "sharpe": "Sharpe Ratio (Return/Risk)", "pnl_dd": "Calmar Ratio (PNL / Max Drawdown)"}, selected="ic"),
+                ui.input_select("miner_funcs", "Theoretical Syntax Set", choices={"all": "Unrestricted Matrix (All)", "linear": "Linear Arithmetic (+, -, *, /)", "cross_sectional": "Cross-Sectional Scoring (Rank)", "technical": "Time-Series Technicals (SMA, Delay)"}, selected="all"),
                 ui.input_numeric("miner_generations", "Generational Evolution limits", value=3, min=1, max=10),
                 ui.input_numeric("miner_pop", "Population Tree Map Size", value=100, min=10, max=500),
-                col_widths={"sm": (4, 4, 4, 6, 6)}
+                col_widths={"sm": (4, 4, 4, 4, 4, 4)}
             ),
 
             ui.input_action_button("btn_run_miner", "Launch Factor Miner (Genetic Search)", class_="btn-run w-100 mb-4")
@@ -528,6 +529,7 @@ def server(input, output, session):
         m_pop = input.miner_pop()
         m_horizon = int(input.miner_horizon())
         m_fitness = input.miner_fitness()
+        m_funcs = input.miner_funcs()
         start_y, end_y = input.year_range()
 
         def _bg_miner():
@@ -541,7 +543,7 @@ def server(input, output, session):
                 df = tools.fetch_universe_data(tickers, start_y, end_y, force_refresh=False)
                 
                 miner_cb(20, f"Executing Genetic Evolution (Pop: {m_pop}, Gens: {m_gens}, Horizon: {m_horizon}d)...")
-                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, fitness_metric=m_fitness, progress_callback=miner_cb)
+                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, fitness_metric=m_fitness, syntax_set=m_funcs, progress_callback=miner_cb)
                 
                 miner_progress_state["res"] = results
             except Exception as e:
