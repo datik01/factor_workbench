@@ -64,11 +64,15 @@ graph TD
     - Avoids survivorship bias by deploying a dynamic **Point-In-Time (PIT)** filter.
     - A dedicated SEC EDGAR N-PORT parser natively scrapes the historical holdings of proxies like `IWM` (Russell 2000) or `SPY` (S&P 500) to ensure the engine only targets assets exactly as they existed on the historical rebalance date.
 
-3. **High-Performance Backtest Engine (`tools.py`)**:
+3. **Genetic Alpha Miner (`factor_miner.py`)**:
+    - Deploys Symbolic Regression via `gplearn` to autonomously evolve custom, non-linear analytical alpha formulas evaluating rolling factors.
+    - Allows dynamic extraction of custom quantitative expressions against multi-horizon target parameters to maximize predictive fitness.
+
+4. **High-Performance Backtest Engine (`tools.py`)**:
     - Fully vectorized multi-factor arrays evaluating Momentum, Mean Reversion, Volatility, Volume profiles, and Size.
     - Dynamic benchmark mapping ensures strategy parameters are cleanly isolated and tracked accurately against their true proxy ETF baseline.
 
-4. **Responsive UI & Threading**:
+5. **Responsive UI & Threading**:
     - Custom dark-theme aesthetics with dynamic Bootstrap 5 CSS mapping.
     - Completely asynchronous quantitative loops utilizing native Python Threading.
     - Embedded UI Modals provide granular, smooth, sub-second (Zeno-asymptotic) percentage loader sweeps, eliminating browser locks entirely.
@@ -116,33 +120,7 @@ graph TD
     shiny run --reload app.py
     ```
 
----
 
-## 💼 Business Value for Stakeholders
-*(📝 TODO: Write 3-5 paragraphs here. Explain who your stakeholders are (e.g. Quant Portfolio Managers, Retail Traders) and exactly how the 3 AI agents and algorithmic backtesting tool directly solve their pain points or save them time. Example starting point: Quantitative Portfolio Managers traditionally spend weeks manually querying EDGAR databases, constructing point-in-time survivorship bias filtration maps, and running cross-sectional statistical limits to discover actionable market anomalies. This tool leverages asynchronous LLMs to compress that timeframe from weeks to under 30 seconds...)*
-
----
-
-## 🔧 AI Agent Tool Parameters (Function Calling)
-The Quantitative Analyst Agent autonomously calls the `run_cross_sectional_backtest` tool dynamically. Below are the exact structural constraints and parameters it processes:
-
-| Parameter Name | Data Type | Purpose & Impact |
-| --- | --- | --- |
-| `tickers` | `list` | Active constituents representing the specific target universe (R2K, S&P 500, or NDX) scraped dynamically from the UI parameters. |
-| `themes` | `list` | Selected macro-factor tilts (e.g., *Momentum*, *Value*, *Volatility*) defining the algorithmic cross-sectional rank evaluations. |
-| `portfolio_size` | `int` | Dictates absolute cutoffs for asset inclusion (defining the size of the long/short basket portfolios). |
-| `strategy_type` | `str` | Sets matrix constraints defining the long-only vs long/short equity algorithmic bounds. |
-| `start_year`/`end_year` | `int` | Chronological bounding limits isolating the test across specific macroeconomic regimes. | 
-
-**Returns**: The tool generates a structured exact `dict` payload holding aggregated compound annual returns, drawdown maps, symmetric Index benchmark calculations (Sharpe Ratio), and the Plotly visualization coordinates, returning it straight into the Ollama Quant Agent for readable synthesis.
-
----
-
-## 👥 Team Members (Roles)
-- **Daniel Atik** - *Project Manager & Full Stack Developer*
-- **Masaab** - 
-
----
 
 ## 🧪 Testing Protocol
 
