@@ -461,11 +461,18 @@ def server(input, output, session):
         
         cards = [
             ui.h4("Automated Formulaic Factor Discovery", style="color: white;"),
-            ui.p("Uses PyGP (gplearn Symbolic Regression) to traverse the abstract syntax tree evaluating mathematical synergies.", class_="mb-4", style="color: white; opacity: 0.9;"),
+            ui.p("Uses PyGP (gplearn Symbolic Regression) to natively evolve and discover automated mathematical alpha synergies.", style="color: white; opacity: 0.9;"),
+            ui.tags.ul(
+                ui.tags.li("Symbolic Regression: Generates thousands of randomized mathematical syntax trees exploring theoretical vectors.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                ui.tags.li("Cross-Sectional Culling: Replaces weaker formulas iteratively using genetic mutation, crossover, and fitness tournament selection.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                ui.tags.li("Parsimony Pressure: Mathematically penalizes formulas that become overly nested to prevent curve-fitting and hallucinatory extraction.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                class_="mb-4"
+            ),
             
             ui.layout_columns(
                 ui.input_select("miner_universe", "Universe Target", ["R2K", "SP500", "NDX"], selected="SP500"),
                 ui.input_select("miner_horizon", "Optimization Horizon", choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
+                ui.input_select("miner_fitness", "Genetic Fitness Objective", choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)"}, selected="ic"),
                 ui.input_numeric("miner_generations", "Generational Evolution limits", value=3, min=1, max=10),
                 ui.input_numeric("miner_pop", "Population Tree Map Size", value=100, min=10, max=500),
             ),
@@ -519,6 +526,7 @@ def server(input, output, session):
         m_gens = input.miner_generations()
         m_pop = input.miner_pop()
         m_horizon = int(input.miner_horizon())
+        m_fitness = input.miner_fitness()
         start_y, end_y = input.year_range()
 
         def _bg_miner():
@@ -532,7 +540,7 @@ def server(input, output, session):
                 df = tools.fetch_universe_data(tickers, start_y, end_y, force_refresh=False)
                 
                 miner_cb(20, f"Executing Genetic Evolution (Pop: {m_pop}, Gens: {m_gens}, Horizon: {m_horizon}d)...")
-                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, progress_callback=miner_cb)
+                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, fitness_metric=m_fitness, progress_callback=miner_cb)
                 
                 miner_progress_state["res"] = results
             except Exception as e:

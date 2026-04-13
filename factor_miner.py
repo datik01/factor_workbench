@@ -116,6 +116,7 @@ def discover_alpha_factors(
     generations: int = 4, 
     pop_size: int = 200, 
     horizon: int = 1,
+    fitness_metric: str = "ic",
     progress_callback=None
 ):
     """
@@ -156,13 +157,18 @@ def discover_alpha_factors(
     # The mathematical bounds the engine is allowed to combine
     function_set = ['add', 'sub', 'mul', 'div', 'abs', 'log', 'sqrt', cs_rank_func, delay_5, sma_10, sma_20, ts_max_20, ts_min_20]
     
+    target_metric = ic_fitness if fitness_metric == "ic" else "mean absolute error"
+    
+    # Optional logic: Stop running evolution if the structural error hits optimal bounds early
+    stop_crit = 0.2 if fitness_metric == "ic" else 0.05
+    
     est = SymbolicRegressor(
         population_size=pop_size,
         generations=generations,
         tournament_size=20,
         function_set=function_set,
-        metric=ic_fitness,
-        stopping_criteria=0.2, # Stop if Mean IC exceeds 20%
+        metric=target_metric,
+        stopping_criteria=stop_crit,
         p_crossover=0.7,
         p_subtree_mutation=0.1,
         p_hoist_mutation=0.05,
