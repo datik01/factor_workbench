@@ -472,9 +472,10 @@ def server(input, output, session):
             ui.layout_columns(
                 ui.input_select("miner_universe", "Universe Target", ["R2K", "SP500", "NDX"], selected="SP500"),
                 ui.input_select("miner_horizon", "Optimization Horizon", choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
-                ui.input_select("miner_fitness", "Genetic Fitness Objective", choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)"}, selected="ic"),
+                ui.input_select("miner_fitness", "Genetic Fitness Objective", choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)", "sharpe": "Sharpe Ratio (Return/Risk)", "pnl_dd": "Calmar Ratio (PNL / Max Drawdown)"}, selected="ic"),
                 ui.input_numeric("miner_generations", "Generational Evolution limits", value=3, min=1, max=10),
                 ui.input_numeric("miner_pop", "Population Tree Map Size", value=100, min=10, max=500),
+                col_widths={"sm": (4, 4, 4, 6, 6)}
             ),
 
             ui.input_action_button("btn_run_miner", "Launch Factor Miner (Genetic Search)", class_="btn-run w-100 mb-4")

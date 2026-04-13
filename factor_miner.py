@@ -53,6 +53,59 @@ def _ic_metric(y, y_pred, w):
 # Map metric to gplearn
 ic_fitness = make_fitness(function=_ic_metric, greater_is_better=True)
 
+def _sharpe_metric(y, y_pred, w):
+    mask = ~np.isnan(y_pred) & ~np.isnan(y) & ~np.isinf(y_pred)
+    if not np.any(mask) or len(y[mask]) < 2: return 0.0
+    
+    y_m, pred_m, w_m = y[mask], y_pred[mask], w[mask].astype(int)
+    counts = np.bincount(w_m)
+    counts_safe = np.where(counts == 0, 1, counts)
+    
+    pred_means = np.bincount(w_m, weights=pred_m) / counts_safe
+    w_weights = pred_m - pred_means[w_m]
+    
+    abs_w = np.abs(w_weights)
+    abs_sums = np.bincount(w_m, weights=abs_w)
+    abs_sums_safe = np.where(abs_sums == 0, 1, abs_sums)
+    w_weights_norm = w_weights / abs_sums_safe[w_m]
+    
+    daily_pnl = np.bincount(w_m, weights=w_weights_norm * y_m)[counts > 0]
+    std = np.std(daily_pnl)
+    if std < 1e-6: return 0.0
+    
+    return np.mean(daily_pnl) / std
+
+def _pnl_dd_metric(y, y_pred, w):
+    mask = ~np.isnan(y_pred) & ~np.isnan(y) & ~np.isinf(y_pred)
+    if not np.any(mask) or len(y[mask]) < 2: return 0.0
+    
+    y_m, pred_m, w_m = y[mask], y_pred[mask], w[mask].astype(int)
+    counts = np.bincount(w_m)
+    counts_safe = np.where(counts == 0, 1, counts)
+    
+    pred_means = np.bincount(w_m, weights=pred_m) / counts_safe
+    w_weights = pred_m - pred_means[w_m]
+    
+    abs_w = np.abs(w_weights)
+    abs_sums = np.bincount(w_m, weights=abs_w)
+    abs_sums_safe = np.where(abs_sums == 0, 1, abs_sums)
+    w_weights_norm = w_weights / abs_sums_safe[w_m]
+    
+    valid_pnl = np.bincount(w_m, weights=w_weights_norm * y_m)[counts > 0]
+    cum_pnl = np.cumsum(valid_pnl)
+    if len(cum_pnl) == 0: return 0.0
+    
+    running_max = np.maximum.accumulate(cum_pnl)
+    drawdowns = running_max - cum_pnl
+    max_dd = np.max(drawdowns)
+    total_pnl = cum_pnl[-1]
+    
+    if total_pnl <= 0: return total_pnl
+    return total_pnl / (max_dd + 1e-4)
+
+sharpe_fitness = make_fitness(function=_sharpe_metric, greater_is_better=True)
+pnl_dd_fitness = make_fitness(function=_pnl_dd_metric, greater_is_better=True)
+
 def _cs_rank(x):
     """
     Custom Primitive: Returns a simple normalized rank.
@@ -157,10 +210,15 @@ def discover_alpha_factors(
     # The mathematical bounds the engine is allowed to combine
     function_set = ['add', 'sub', 'mul', 'div', 'abs', 'log', 'sqrt', cs_rank_func, delay_5, sma_10, sma_20, ts_max_20, ts_min_20]
     
-    target_metric = ic_fitness if fitness_metric == "ic" else "mean absolute error"
+    if fitness_metric == "ic": target_metric = ic_fitness
+    elif fitness_metric == "sharpe": target_metric = sharpe_fitness
+    elif fitness_metric == "pnl_dd": target_metric = pnl_dd_fitness
+    else: target_metric = "mean absolute error"
     
     # Optional logic: Stop running evolution if the structural error hits optimal bounds early
     stop_crit = 0.2 if fitness_metric == "ic" else 0.05
+    if fitness_metric in ["sharpe", "pnl_dd"]:
+        stop_crit = 3.0 # i.e. 3.0 Sharpe or 3.0 Calmar
     
     est = SymbolicRegressor(
         population_size=pop_size,
