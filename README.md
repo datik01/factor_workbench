@@ -92,10 +92,12 @@ graph TD
     *Ensure you have `shiny`, `pandas`, `numpy`, `plotly`, `requests`, and `beautifulsoup4`.*
 
 3. **Provide API Tokens**:
-    In your local root `.env` file, export your Polygon API key to handle the caching backend:
+    In your local root `.env` file, export your API keys to handle the caching and mapping backend:
     ```bash
-    POLYGON_API_KEY="your_api_key_here"
+    POLYGON_API_KEY="your_polygon_key_here"
+    MASSIVE_API_KEY="your_massive_key_here"
     ```
+    *The `MASSIVE_API_KEY` is fully required for executing the cold-start Cache Rebuild fallback which structurally maps dynamic SEC EDGAR CUSIPs into exact Tickers point-in-time.*
 
 4. **Run the AI Local Node**:
     The system relies entirely on local, private inference via Ollama. Ensure your Ollama node is actively hosting the defined model (e.g., Gemma).
@@ -104,11 +106,11 @@ graph TD
     ```
 
 5. **(Optional) Bypass API Limits via Cache**:
-    To avoid downloading 4+ years of data per ticker via Polygon and skipping structural API limits, download the `factor_cache_v1.zip` database directly from the **Releases** tab on this Github repository. 
+    To avoid downloading 4+ years of data per ticker via Polygon, you can download the `factor_cache_v1.zip` database directly from the **Releases** tab on this Github repository. 
     ```bash
     unzip factor_cache_v1.zip -d .
     ```
-    *This will cleanly inject the `.cache/` folder directly into your root directory so the engine can skip the data-mining phase.*
+    *Note: If you clone the repository entirely empty and skip downloading the cache, the application will safely catch the Missing Data constraint dynamically. Instead of crashing, it will spawn an automatic "Cold Start Handler" locally extracting point-in-time assets directly from SEC EDGAR XMLs mapped by the Massive API. This fallback takes ~5-10 minutes.*
 
 6. **Initialize application**:
     ```bash
