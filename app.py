@@ -225,10 +225,11 @@ body {
 .agent-label {
     font-weight: 700;
     font-size: 0.85rem;
+    color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 10px;
-    opacity: 0.9;
+    opacity: 0.95;
 }
 
 /* ── Header ── */
@@ -375,7 +376,9 @@ app_ui = ui.page_fluid(
             # Factor Config
             ui.div(
                 ui.h6("Factor Configuration"),
-                ui.input_selectize("themes", "Factor Selection", choices=list(THEMES.keys()), multiple=True, selected=["momentum_1m"]),
+                ui.input_selectize("themes", "Base Analytics", choices=list(THEMES.keys()), multiple=True, selected=["momentum_1m"]),
+                ui.input_text("custom_formula", "🧪 Custom GP Alpha Formula", placeholder="e.g. sqrt(div(Open, Low)) (Overrides themes)"),
+                ui.input_select("mined_formula_dropdown", "🧬 Selected Mined Alpha", choices={"None": "None"}, selected="None"),
                 ui.input_switch("invert_factor", "Invert Factor (Low to High)", value=False),
                 class_="config-section",
             ),
@@ -384,6 +387,7 @@ app_ui = ui.page_fluid(
             ui.div(
                 ui.h6("Portfolio Configuration"),
                 ui.input_select("strategy_type", "Strategy Type", choices=["Long/Short", "Long Only", "Short Only"]),
+                ui.input_select("quantile_split", "Analysis Quantiles", choices={"3": "Tertiles (3)", "4": "Quartiles (4)", "5": "Quintiles (5)", "10": "Deciles (10)"}, selected="5"),
                 ui.input_slider("portfolio_size", "Portfolio Size",
                                 min=10, max=1000, value=100, step=10),
                 ui.input_numeric("initial_aum", "Initial AUM ($)", value=1000000),
@@ -411,6 +415,9 @@ app_ui = ui.page_fluid(
             ui.nav_panel("🤖 Agent Logs",
                 ui.output_ui("agent_logs"),
             ),
+            ui.nav_panel("🧬 AI Alpha Miner",
+                ui.output_ui("miner_ui"),
+            ),
         ),
     ),
 )
@@ -428,6 +435,112 @@ def server(input, output, session):
     
     is_running = reactive.Value(False)
     cancel_flag = False
+
+    # Miner State
+    miner_results_val = reactive.Value(None)
+    miner_status_val = reactive.Value("Ready to mine!")
+    miner_running = reactive.Value(False)
+    miner_progress_state = {"done": False, "res": None, "msg": "", "error": ""}
+
+    @render.ui
+    def miner_ui():
+        if miner_running.get():
+            return ui.div(
+                ui.h4("🧬 Genetic Alpha Mining in Progress...", class_="text-info"),
+                ui.p(miner_status_val.get(), style="color: #00d4aa;"),
+                class_="p-4 text-center mt-5"
+            )
+            
+        if miner_progress_state.get("error"):
+            return ui.div(
+                ui.h4("⚠️ Engine Initialization Error", class_="text-danger"),
+                ui.p(miner_status_val.get(), style="color: #ff4a4a;"),
+                ui.input_action_button("btn_run_miner", "Retry Miner", class_="btn-run w-100 mt-4"),
+                class_="p-4 text-center mt-5"
+            )
+        
+        cards = [
+            ui.h4("Automated Formulaic Factor Discovery", style="color: white;"),
+            ui.p("Uses PyGP (gplearn Symbolic Regression) to traverse the abstract syntax tree evaluating mathematical synergies.", class_="mb-4", style="color: white; opacity: 0.9;"),
+            
+            ui.layout_columns(
+                ui.input_select("miner_universe", "Universe Target", ["R2K", "SP500", "NDX"], selected="SP500"),
+                ui.input_select("miner_horizon", "Optimization Horizon", choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
+                ui.input_numeric("miner_generations", "Generational Evolution limits", value=3, min=1, max=10),
+                ui.input_numeric("miner_pop", "Population Tree Map Size", value=100, min=10, max=500),
+            ),
+
+            ui.input_action_button("btn_run_miner", "Launch Factor Miner (Genetic Search)", class_="btn-run w-100 mb-4")
+        ]
+        
+        results = miner_results_val.get()
+        if results:
+            cards.append(ui.hr())
+            cards.append(ui.h4("🏆 Top Discovered Alphabetic Formulas", class_="mt-3 mb-3", style="color: white;"))
+            for i, r in enumerate(results):
+                cards.append(
+                    ui.div(
+                        ui.h5(f"Rank {i+1} | Sharpe/IC Proxy: {r['ic_fitness']:.4f}", class_="agent-label text-success"),
+                        ui.tags.code(r['formula'], style="font-size: 1.15rem; color: #e5e5e5; font-weight: 500;"),
+                        class_="agent-card agent-quant mt-2"
+                    )
+                )
+        return ui.div(*cards)
+
+    @reactive.Effect
+    def _poll_miner_thread():
+        if not miner_running.get():
+            return
+        reactive.invalidate_later(0.2)
+        miner_status_val.set(miner_progress_state["msg"])
+        if miner_progress_state["done"]:
+            miner_running.set(False)
+            if miner_progress_state["error"]:
+                miner_status_val.set(f"Error: {miner_progress_state['error']}")
+            else:
+                miner_results_val.set(miner_progress_state["res"])
+                miner_status_val.set("Complete.")
+
+    @reactive.Effect
+    @reactive.event(input.btn_run_miner)
+    def run_miner():
+        if miner_running.get() or is_running():
+            return
+        miner_running.set(True)
+        miner_results_val.set(None)
+        miner_progress_state["done"] = False
+        miner_progress_state["error"] = ""
+        miner_progress_state["msg"] = "Initializing Miner Thread..."
+        
+        def miner_cb(pct, msg):
+            miner_progress_state["msg"] = msg
+
+        m_universe = input.miner_universe()
+        m_gens = input.miner_generations()
+        m_pop = input.miner_pop()
+        m_horizon = int(input.miner_horizon())
+        start_y, end_y = input.year_range()
+
+        def _bg_miner():
+            try:
+                import tools
+                from constituents.universe_builder import get_latest_constituents
+                from factor_miner import discover_alpha_factors
+                
+                miner_cb(5, f"Fetching Baseline DataFrame ({m_universe} Array Subset)...")
+                tickers = get_latest_constituents(m_universe)[:80] # Proxy subset
+                df = tools.fetch_universe_data(tickers, start_y, end_y, force_refresh=False)
+                
+                miner_cb(20, f"Executing Genetic Evolution (Pop: {m_pop}, Gens: {m_gens}, Horizon: {m_horizon}d)...")
+                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, progress_callback=miner_cb)
+                
+                miner_progress_state["res"] = results
+            except Exception as e:
+                miner_progress_state["error"] = str(e)
+            finally:
+                miner_progress_state["done"] = True
+
+        threading.Thread(target=_bg_miner, daemon=True).start()
     progress_state = {"pct": 0, "msg": "", "done": True, "res": None, "error": None}
     reactive_progress = reactive.Value({"pct": 0, "msg": ""})
 
@@ -449,7 +562,7 @@ def server(input, output, session):
         <div style="margin-bottom: 8px; font-weight: 500; text-align: center;">{msg}</div>
         <div style="text-align: right; font-size: 0.85rem; color: #00d4aa; font-weight: 600; margin-bottom: 4px;">{pct:.0f}%</div>
         <div class="progress" style="height: 24px; border-radius: 6px; background-color: #1a1e23; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);">
-          <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: {pct}%;" aria-valuenow="{pct}" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: {pct}%; background-color: #00d4aa; color: #ffffff;" aria-valuenow="{pct}" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
         ''')
 
@@ -484,13 +597,28 @@ def server(input, output, session):
             is_running.set(False)
             ui.modal_remove()
                 
+            res_payload = progress_state.get("res") or {}
+            
             if progress_state["error"]:
                 workflow_result.set({"error": progress_state["error"]})
                 status_msg.set(f"❌ {progress_state['error']}")
+            elif "error" in res_payload:
+                workflow_result.set({"error": res_payload["error"]})
+                status_msg.set(f"❌ {res_payload['error']}")
             elif progress_state["res"]:
                 workflow_result.set(progress_state["res"])
                 n = progress_state["res"].get("metrics", {}).get("n_tickers", "?")
                 status_msg.set(f"✅ Analysis complete — {n} stocks processed.")
+
+    @reactive.Effect
+    @reactive.event(miner_results_val)
+    def update_mined_dropdown():
+        res = miner_results_val.get()
+        if res:
+            choices = {"None": "None"}
+            for i, item in enumerate(res):
+                choices[item["formula"]] = f"Factor {i+1} : {item['formula'][:40]}... (IC: {item['ic_fitness']:.3f})"
+            ui.update_select("mined_formula_dropdown", choices=choices)
 
     @reactive.Effect
     @reactive.event(input.run_btn)
@@ -503,19 +631,32 @@ def server(input, output, session):
 
         workflow_result.set(None)
         theme_keys = list(input.themes())
-        if not theme_keys:
-            status_msg.set("⚠️ Please select at least one factor.")
-            return
+        custom_f = input.custom_formula().strip()
+        mined_f = input.mined_formula_dropdown()
+        
+        if mined_f and mined_f != "None":
+            custom_formula_opt = mined_f
+        elif custom_f:
+            custom_formula_opt = custom_f
+        else:
+            custom_formula_opt = None
 
+        if not theme_keys and not custom_formula_opt:
+            status_msg.set("⚠️ Please select at least one factor or provide a custom formula.")
+            return
         invert_factor = input.invert_factor()
         start_year, end_year = input.year_range()
         initial_aum = input.initial_aum()
         rebalance_freq = input.rebalance_freq()
         portfolio_size = input.portfolio_size()
         strategy_type = input.strategy_type()
+        quantile_split = int(input.quantile_split())
 
-        formatted_str = " + ".join(theme_keys).replace("_", " ").title()
-        status_msg.set(f"Initializing {formatted_str} composite backtest...")
+        if custom_formula_opt:
+            status_msg.set(f"Initializing Automated Custom Alpha Formula composite...")
+        else:
+            formatted_str = " + ".join(theme_keys).replace("_", " ").title()
+            status_msg.set(f"Initializing {formatted_str} composite backtest...")
 
         active_universe = input.universe_selection()
         txt_path = os.path.join(_script_dir, ".cache", "constituents", f"{active_universe.lower()}_tickers_latest.txt")
@@ -526,7 +667,20 @@ def server(input, output, session):
                 dynamic_tickers = [t.strip() for t in _f.readlines() if t.strip()]
         
         if not dynamic_tickers:
-            dynamic_tickers = ["AAPL"]
+            import pandas as pd
+            try:
+                if active_universe == "SP500":
+                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+                    dynamic_tickers = df['Symbol'].tolist()
+                elif active_universe == "NDX":
+                    df = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')[4]
+                    dynamic_tickers = df['Ticker'].tolist()
+                else:
+                    # If R2K cache is missing, smoothly default fallback to S&P 500
+                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+                    dynamic_tickers = df['Symbol'].tolist()
+            except Exception:
+                dynamic_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"] # Bare minimum fallback to prevent hard crash
         
         try:
             from constituents.universe_builder import build_constituent_timeline
@@ -569,7 +723,7 @@ def server(input, output, session):
                 elif "point-in-time" in msg or "PIT filter" in msg:
                     local_pct = (current / total * 100) if total > 0 else 100
                     global_pct = 35 + (local_pct * 0.10)
-                elif "Backtesting day" in msg:
+                elif "Backtesting day" in msg or "Executing vector" in msg or "Calculating historical" in msg or "Aggregating performance" in msg:
                     local_pct = (current / total * 100) if total > 0 else 0
                     global_pct = 45 + (local_pct * 0.55)
                 else:
@@ -587,6 +741,7 @@ def server(input, output, session):
                 res = run_agentic_workflow(
                     tickers=dynamic_tickers,
                     themes=theme_keys,
+                    custom_formula=custom_formula_opt,
                     portfolio_size=portfolio_size,
                     strategy_type=strategy_type,
                     start_year=start_year,
@@ -597,6 +752,7 @@ def server(input, output, session):
                     progress_callback=ui_progress,
                     constituent_timeline=timeline,
                     benchmark_ticker=benchmark_ticker,
+                    quantiles=quantile_split,
                 )
                 progress_state["res"] = res
             except Exception as e:
@@ -668,13 +824,20 @@ def server(input, output, session):
             if isinstance(val, (int, float)):
                 return f"{val*100:.1f}%"
             return str(val)
+            
+        def _fmt_doll(val):
+            if isinstance(val, (int, float)):
+                return f"${val:,.0f}"
+            return str(val)
 
         return ui.div(
             ui.h6("Strategy Performance Metrics", style="color: #ffffff; margin-bottom: 12px; margin-top: 5px; font-weight: 600; font-size: 1.05rem;"),
             ui.layout_columns(
-                ui.value_box("Strategy Total Ret", _fmt_pct(m.get('total_port_return', 'N/A')),
+                ui.value_box("Total Ret ($)", _fmt_doll(m.get('total_ret_usd', 'N/A')),
                              theme=ui.value_box_theme(bg="#2d3436", fg="white")),
                 ui.value_box("Strategy Ann. Ret", _fmt_pct(m.get('ann_port_return', 'N/A')),
+                             theme=ui.value_box_theme(bg="#2d3436", fg="white")),
+                ui.value_box("Strategy Ann Vol", _fmt_pct(m.get('ann_vol', 'N/A')),
                              theme=ui.value_box_theme(bg="#2d3436", fg="white")),
                 ui.value_box("Strategy Sharpe", _fmt(m.get('sharpe_ratio', 'N/A')),
                              theme=ui.value_box_theme(bg=_color(m.get('sharpe_ratio'), 0.5, 0), fg="white")),
@@ -700,6 +863,8 @@ def server(input, output, session):
             ui.layout_columns(
                 ui.value_box("Ann. Alpha", _fmt_pct(m.get('ann_alpha', 'N/A')),
                              theme=ui.value_box_theme(bg=_color(m.get('ann_alpha'), 0.01, -0.01), fg="white")),
+                ui.value_box("Portfolio Beta", _fmt(m.get('port_beta', 'N/A')),
+                             theme=ui.value_box_theme(bg="#2d3436", fg="white")),
                 ui.value_box("Mean IC", _fmt(m.get('mean_ic', 'N/A')),
                              theme=ui.value_box_theme(bg=_color(m.get('mean_ic'), 0.02, 0), fg="white")),
                 ui.value_box("IC IR", _fmt(m.get('ic_ir', 'N/A')),

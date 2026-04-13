@@ -89,7 +89,7 @@ QUANT_SUMMARY_PROMPT = (
     "Summarize the key findings in 3-4 sentences. Focus on:\n"
     "1) Information Coefficient (IC) and IC Information Ratio — do they indicate predictive power?\n"
     "2) Long/short portfolio Sharpe ratio and alpha vs equal-weight benchmark\n"
-    "3) Quintile spread — is the return monotonic from Q1 to Q5?\n"
+    "3) Quantile spread — is the return monotonic from lowest to highest quantile?\n"
     "4) Statistical significance (regression p-value, R²)\n"
     "Use only the data provided. Do NOT invent numbers."
 )
@@ -111,6 +111,7 @@ RISK_MANAGER_PROMPT = (
 def run_agentic_workflow(
     tickers: list,
     themes: list,
+    custom_formula: str = None,
     portfolio_size: int = 100,
     strategy_type: str = "Long/Short",
     start_year: int = 2020,
@@ -121,6 +122,7 @@ def run_agentic_workflow(
     progress_callback=None,
     constituent_timeline: dict = None,
     benchmark_ticker: str = "IWM",
+    quantiles: int = 5,
 ) -> dict:
     """
     Executes the three-agent pipeline with cross-sectional portfolio construction.
@@ -150,6 +152,7 @@ def run_agentic_workflow(
     tool_result_str = run_cross_sectional_backtest(
         tickers=tickers,
         themes=themes,
+        custom_formula=custom_formula,
         portfolio_size=portfolio_size,
         strategy_type=strategy_type,
         start_year=start_year,
@@ -160,6 +163,7 @@ def run_agentic_workflow(
         progress_callback=progress_callback,
         constituent_timeline=constituent_timeline,
         benchmark_ticker=benchmark_ticker,
+        quantiles=quantiles,
     )
     tool_data = json.loads(tool_result_str)
 

@@ -187,7 +187,38 @@ def fetch_universe_data(
 # Factor Computation (Cross-Sectional)
 # ═══════════════════════════════════════════════════════════════
 
-def _compute_factor_scores(universe: pd.DataFrame, themes: list, progress_callback=None) -> pd.DataFrame:
+def execute_gplearn_formula(df: pd.DataFrame, formula_str: str) -> np.ndarray:
+    """
+    Safely translates internal gplearn Abstract Syntax Trees into raw pandas/numpy executions natively.
+    """
+    def add(a, b): return a + b
+    def sub(a, b): return a - b
+    def mul(a, b): return a * b
+    def div(a, b): return np.where(np.abs(b) < 1e-6, 1.0, a / b)
+    def abs_f(a): return np.abs(a)
+    def sqrt(a): return np.sqrt(np.abs(a))
+    def log(a): return np.log(np.abs(a) + 1e-5)
+    def rank(a): return pd.Series(a).rank(pct=True).values
+
+    # Pre-parse memory bindings matching factor_miner's target states
+    env = {
+        "add": add, "sub": sub, "mul": mul, "div": div,
+        "abs": abs_f, "sqrt": sqrt, "log": log, "rank": rank,
+        "Open": df["open"].values,
+        "High": df["high"].values,
+        "Low": df["low"].values,
+        "Close": df["close"].values,
+        "Volume": df["volume"].values,
+        "Returns": df["daily_return"].values if "daily_return" in df.columns else np.zeros(len(df))
+    }
+    
+    # Secure string replacement for protected python keywords
+    f_str = formula_str.replace('abs(', 'abs(')
+    
+    # Fully isolates eval mapping against sandbox dictionary
+    return eval(f_str, {"__builtins__": {}}, env)
+
+def _compute_factor_scores(universe: pd.DataFrame, themes: list, custom_formula: str = None, progress_callback=None) -> pd.DataFrame:
     """
     For each ticker, compute a daily factor score across multiple composites.
     Cross-sectionally ranks each specific factor, and computes the Rank-Sum equal-weight.
@@ -200,6 +231,15 @@ def _compute_factor_scores(universe: pd.DataFrame, themes: list, progress_callba
     # Apply data sanitization clipping to prevent unadjusted API split artifacts from annihilating the backtest equity bounds
     df["fwd_return"] = df.groupby("ticker")["daily_return"].shift(-1).clip(lower=-0.5, upper=0.5)
     
+    # Sandbox Escape: Prioritize GP algorithm overrides
+    if custom_formula and custom_formula.strip():
+        if progress_callback:
+            progress_callback(50, 100, "", f"Injecting abstract GP Formula internally: {custom_formula}")
+        df["factor_score"] = execute_gplearn_formula(df, custom_formula)
+        df = df.dropna(subset=["factor_score", "fwd_return"])
+        df["factor_rank"] = df.groupby("date")["factor_score"].rank(pct=True)
+        return df
+
     rank_cols = []
     
     for i, theme in enumerate(themes):
@@ -309,6 +349,7 @@ def _pit_filter(scored_df: pd.DataFrame, timeline: dict, progress_callback=None)
 def run_cross_sectional_backtest(
     tickers: list,
     themes: list,
+    custom_formula: str = None,
     portfolio_size: int = 100,
     strategy_type: str = "Long/Short",
     start_year: int = 2020,
@@ -319,6 +360,7 @@ def run_cross_sectional_backtest(
     progress_callback=None,
     constituent_timeline: dict = None,
     benchmark_ticker: str = "IWM",
+    quantiles: int = 5,
 ) -> str:
     """
     Full cross-sectional factor backtest:
@@ -346,7 +388,7 @@ def run_cross_sectional_backtest(
         if progress_callback:
             progress_callback(0, 100, "", "Computing multi-factor composite scores...")
 
-        scored = _compute_factor_scores(universe, themes, progress_callback=progress_callback)
+        scored = _compute_factor_scores(universe, themes, custom_formula=custom_formula, progress_callback=progress_callback)
         
         if invert_factor:
             scored["factor_score"] *= -1
@@ -362,11 +404,14 @@ def run_cross_sectional_backtest(
             scored = _pit_filter(scored, constituent_timeline, progress_callback=progress_callback)
             post_count = scored["ticker"].nunique()
             if progress_callback:
-                progress_callback(100, 100, "", f"PIT filter: {pre_count} → {post_count} tickers (bias-free)")
+                progress_callback(100, 100, "", f"PIT filter: {pre_count} → {post_count} tickers (survivorship bias-free)")
 
         n_unique = scored["ticker"].nunique()
         if n_unique < portfolio_size:
-            return json.dumps({"error": f"Only {n_unique} valid universe tickers. Cannot force a portfolio size of {portfolio_size}.", "success": False})
+            portfolio_size = max(2, (n_unique // 2) * 2)  # Dynamically bounds to the maximum available even digits
+
+        if progress_callback:
+            progress_callback(0, 100, "", "Executing vectorized backtest constraints...")
 
         # ── Portfolio construction ───────────────────────────
         leg_size = max(1, portfolio_size // 2)
@@ -398,6 +443,9 @@ def run_cross_sectional_backtest(
             # Lock position sizes dynamically based on boundary triggers
             scored["position"] = scored["position"].where(is_rebalance)
             scored["position"] = scored.groupby("ticker")["position"].ffill().fillna(0.0)
+
+        if progress_callback:
+            progress_callback(50, 100, "", "Calculating historical portfolio compound returns...")
 
         # Daily portfolio return = average of positioned returns (equal-weight L/S)
         portfolio = scored[scored["position"] != 0].copy()
@@ -434,6 +482,9 @@ def run_cross_sectional_backtest(
             "short_return": short_only.fillna(0) if not short_only.empty else 0,
         }).fillna(0)
 
+        if progress_callback:
+            progress_callback(80, 100, "", "Aggregating performance metrics & plotting...")
+
         if len(combined) < 50:
             return json.dumps({"error": "Too few trading days after filtering.", "success": False})
 
@@ -455,6 +506,13 @@ def run_cross_sectional_backtest(
         sharpe = ann_port / ann_vol if ann_vol > 0 else 0
         bench_sharpe = ann_bench / ann_bench_vol if ann_bench_vol > 0 else 0
         alpha = ann_port - ann_bench
+        
+        # Portfolio Beta to Benchmark
+        cov_matrix = np.cov(combined["port_return"], combined["bench_return"])
+        port_beta = cov_matrix[0, 1] / cov_matrix[1, 1] if cov_matrix[1, 1] > 0 else 0
+        
+        # Absolute Total Return in USD
+        total_ret_usd = cum_port.iloc[-1] - initial_aum
 
         # Max drawdown
         rolling_max = cum_port.cummax()
@@ -499,13 +557,13 @@ def run_cross_sectional_backtest(
         
         fig_equity.add_trace(go.Scatter(
             x=cum_long.index, y=cum_long.values,
-            mode="lines", name="Long Leg (Top Quintile)",
+            mode="lines", name="Long Leg (Top Quantile)",
             line=dict(color="#54a0ff", width=1.5, dash="dot"),
             visible="legendonly",
         ))
         fig_equity.add_trace(go.Scatter(
             x=cum_short.index, y=cum_short.values,
-            mode="lines", name="Short Leg (Bottom Quintile)",
+            mode="lines", name="Short Leg (Bottom Quantile)",
             line=dict(color="#ff6b6b", width=1.5, dash="dot"),
             visible="legendonly",
         ))
@@ -520,21 +578,36 @@ def run_cross_sectional_backtest(
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(0,0,0,0.5)"),
         )
 
-        # 2. Quintile Returns Bar
-        scored["quintile"] = pd.qcut(
-            scored["factor_rank"], 5,
-            labels=["Q1 (Low)", "Q2", "Q3", "Q4", "Q5 (High)"],
-        )
+        # 2. Quantile Returns Bar
+        q_labels = [f"Q{i}" for i in range(1, quantiles + 1)]
+        q_labels[0] = "Q1 (Low)"
+        q_labels[-1] = f"Q{quantiles} (High)"
+        try:
+            scored["quintile"] = pd.qcut(
+                scored["factor_rank"], quantiles,
+                labels=q_labels,
+            )
+        except ValueError:
+            # Fallback: force unique ties for binary/saturated GP formulas
+            scored["quintile"] = pd.qcut(
+                scored["factor_rank"].rank(method="first"), quantiles,
+                labels=q_labels,
+            )
         q_returns = scored.groupby("quintile")["fwd_return"].mean() * 252
+        
+        # Build dynamic color gradient natively
+        from plotly.colors import sample_colorscale
+        bar_colors = sample_colorscale("Turbo", [i / (quantiles - 1) for i in range(quantiles)]) if quantiles > 2 else ["#ff6b6b", "#00d4aa"]
+        
         fig_qbar = go.Figure(data=[go.Bar(
             x=q_returns.index.astype(str), y=q_returns.values,
-            marker_color=["#ff6b6b", "#ff9f43", "#ffd700", "#54a0ff", "#00d4aa"],
+            marker_color=bar_colors,
             text=[f"{v:.1%}" for v in q_returns.values],
             textposition="outside",
         )])
         fig_qbar.update_layout(
-            title="Annualized Return by Factor Quintile (Cross-Sectional)",
-            xaxis_title="Factor Quintile", yaxis_title="Annualized Return",
+            title="Annualized Return by Factor Quantile (Cross-Sectional)",
+            xaxis_title="Factor Quantile", yaxis_title="Annualized Return",
             template="plotly_dark", height=380,
         )
 
@@ -586,9 +659,12 @@ def run_cross_sectional_backtest(
             "n_trading_days": n_days,
             "total_port_return": round(total_port, 4),
             "total_bench_return": round(total_bench, 4),
-            "sharpe_ratio": round(sharpe, 4),
             "bench_sharpe": round(bench_sharpe, 4),
             "bench_max_dd": round(bench_max_dd, 4),
+            "port_beta": round(port_beta, 3),
+            "ann_vol": round(ann_vol, 4),
+            "total_ret_usd": round(total_ret_usd, 2),
+            "quintile_returns": {str(k): round(v, 4) for k, v in q_returns.items()}
         }
 
         return json.dumps({

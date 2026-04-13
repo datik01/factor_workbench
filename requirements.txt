@@ -10,3 +10,4 @@ beautifulsoup4
 requests
 pyarrow
 numpy
+gplearn
