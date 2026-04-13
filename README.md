@@ -92,9 +92,8 @@ graph TD
     *Ensure you have `shiny`, `pandas`, `numpy`, `plotly`, `requests`, and `beautifulsoup4`.*
 
 3. **Provide API Tokens**:
-    In your local root `.env` file, export your API keys to handle the caching and mapping backend:
+    In your local root `.env` file, export your required API key to handle the caching and mapping backend:
     ```bash
-    POLYGON_API_KEY="your_polygon_key_here"
     MASSIVE_API_KEY="your_massive_key_here"
     ```
     *The `MASSIVE_API_KEY` is fully required for executing the cold-start Cache Rebuild fallback which structurally maps dynamic SEC EDGAR CUSIPs into exact Tickers point-in-time.*
@@ -106,7 +105,7 @@ graph TD
     ```
 
 5. **(Optional) Bypass API Limits via Cache**:
-    To avoid downloading 4+ years of data per ticker via Polygon, you can download the `factor_cache_v1.zip` database directly from the **Releases** tab on this Github repository. 
+    To avoid downloading 4+ years of data per ticker locally, you can download the `factor_cache_v1.zip` database directly from the **Releases** tab on this Github repository. 
     ```bash
     unzip factor_cache_v1.zip -d .
     ```
