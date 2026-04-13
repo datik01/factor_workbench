@@ -525,20 +525,9 @@ def server(input, output, session):
             with open(txt_path) as _f:
                 dynamic_tickers = [t.strip() for t in _f.readlines() if t.strip()]
         
+        cache_needs_rebuild = False
         if not dynamic_tickers:
-            import pandas as pd
-            try:
-                if active_universe == "SP500":
-                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
-                    dynamic_tickers = df['Symbol'].tolist()
-                elif active_universe == "NDX":
-                    df = pd.read_html('https://en.wikipedia.org/wiki/Nasdaq-100')[4]
-                    dynamic_tickers = df['Ticker'].tolist()
-                else:
-                    df = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
-                    dynamic_tickers = df['Symbol'].tolist()
-            except Exception:
-                dynamic_tickers = ["AAPL", "MSFT", "GOOGL", "AMZN"]
+            cache_needs_rebuild = True
         
         try:
             from constituents.universe_builder import build_constituent_timeline
@@ -572,7 +561,10 @@ def server(input, output, session):
                 # Global mapping bounds mapping the system systematically monotonically:
                 global_pct = progress_state["pct"]
                 
-                if any(x in msg for x in ["Initializing", "Fetching", "Loaded", "Cache"]):
+                if "Cache is empty" in msg or "Discovering" in msg or "SEC XML" in msg or "Mapping" in msg:
+                    local_pct = (current / total * 100) if total > 0 else 50
+                    global_pct = (local_pct * 0.19) # Give it 0-19% for SEC rebuilding
+                elif any(x in msg for x in ["Initializing", "Fetching", "Loaded", "Cache"]):
                     local_pct = (current / total * 100) if total > 0 else 100
                     global_pct = 20 + (local_pct * 0.05)
                 elif "multi-factor" in msg or "composite rankings" in msg or "Ranking factor" in msg:
@@ -596,6 +588,25 @@ def server(input, output, session):
             benchmark_ticker = proxy_map.get(active_universe, "IWM")
 
             try:
+                nonlocal dynamic_tickers, timeline
+                if cache_needs_rebuild:
+                    ui_progress(0, 0, "", "⚠️ Cache is empty! Forcing a full rebuild from SEC EDGAR + Massive APIs. This will take ~5-10 minutes...")
+                    from constituents.universe_builder import build_historical_constituents, get_latest_constituents, build_constituent_timeline
+                    
+                    master_df = build_historical_constituents(
+                        etf_key=active_universe,
+                        max_filings=5,
+                        use_known=(active_universe == "R2K"),
+                        progress_callback=ui_progress,
+                        force_refresh=True
+                    )
+                    
+                    timeline = build_constituent_timeline(master_df, etf_key=active_universe)
+                    dynamic_tickers = get_latest_constituents(active_universe)
+                    
+                    if not dynamic_tickers:
+                        raise ValueError(f"Failed to rebuild SEC data for {active_universe}")
+
                 res = run_agentic_workflow(
                     tickers=dynamic_tickers,
                     themes=theme_keys,
