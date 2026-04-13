@@ -10,6 +10,9 @@ from scipy.stats import ConstantInputWarning, NearConstantInputWarning
 warnings.filterwarnings('ignore', category=ConstantInputWarning)
 warnings.filterwarnings('ignore', category=NearConstantInputWarning)
 warnings.filterwarnings('ignore', message='.*constant.*')
+warnings.filterwarnings('ignore', message='.*resource_tracker.*')
+warnings.filterwarnings('ignore', message='.*semlock.*')
+warnings.filterwarnings('ignore', category=UserWarning)
 # ═══════════════════════════════════════════════════════════════
 # Fitness Metrics & Primitives (Genetic Programming POC)
 # ═══════════════════════════════════════════════════════════════
@@ -240,7 +243,7 @@ def discover_alpha_factors(
         p_hoist_mutation=0.05,
         p_point_mutation=0.1,
         verbose=0,
-        n_jobs=-1,
+        n_jobs=1,
         random_state=42
     )
     
