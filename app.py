@@ -419,7 +419,28 @@ app_ui = ui.page_fluid(
                 ui.output_ui("agent_logs"),
             ),
             ui.nav_panel("🧬 AI Alpha Miner",
-                ui.output_ui("miner_ui"),
+                ui.h4("Automated Formulaic Factor Discovery", style="color: white; mt-3"),
+                ui.p("Uses PyGP (gplearn Symbolic Regression) to natively evolve and discover automated mathematical alpha synergies.", style="color: white; opacity: 0.9;"),
+                ui.tags.ul(
+                    ui.tags.li("Symbolic Regression: Generates thousands of randomized mathematical syntax trees exploring theoretical vectors.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                    ui.tags.li("Cross-Sectional Culling: Replaces weaker formulas iteratively using genetic mutation, crossover, and fitness tournament selection.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                    ui.tags.li("Parsimony Pressure: Mathematically penalizes formulas that become overly nested to prevent curve-fitting and hallucinatory extraction.", style="color: #c7c7c7; margin-bottom: 5px;"),
+                    class_="mb-4"
+                ),
+                ui.layout_columns(
+                    ui.input_select("miner_universe", tip("Universe Target", "The asset pool the genetic engine uses to train its formulas."), ["R2K", "SP500", "NDX"], selected="SP500"),
+                    ui.input_select("miner_horizon", tip("Optimization Horizon", "The forward-looking return window the AI attempts to predict."), choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
+                    ui.input_select("miner_fitness", tip("Genetic Fitness Objective", "The mathematical risk or accuracy metric the AI maximizes during evolution."), choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)", "sharpe": "Sharpe Ratio (Return/Risk)", "pnl_dd": "Calmar Ratio (PNL / Max Drawdown)"}, selected="ic"),
+                    ui.input_select("miner_funcs", tip("Theoretical Syntax Set", "Restricts the AI to only use specific mathematical functions."), choices={"all": "Unrestricted Matrix (All)", "linear": "Linear Arithmetic (+, -, *, /)", "cross_sectional": "Cross-Sectional Scoring (Rank)", "technical": "Time-Series Technicals (SMA, Delay)"}, selected="all"),
+                    ui.input_numeric("miner_generations", tip("Generational Evolution limits", "How many times the AI breeds, mutates, and culls the formulas."), value=3, min=1, max=10),
+                    ui.input_numeric("miner_pop", tip("Population Tree Map Size", "The number of formulas generated and tested per generation."), value=100, min=10, max=500),
+                    col_widths={"sm": (4, 4, 4, 4, 4, 4)},
+                    class_="mb-4",
+                    fill=False,
+                    fillable=False
+                ),
+                ui.output_ui("miner_action_btn"),
+                ui.output_ui("miner_results_ui")
             ),
         ),
     ),
@@ -446,7 +467,7 @@ def server(input, output, session):
     miner_progress_state = {"done": False, "res": None, "msg": "", "error": ""}
 
     @render.ui
-    def miner_ui():
+    def miner_action_btn():
         if miner_running.get():
             return ui.div(
                 ui.h4("🧬 Genetic Alpha Mining in Progress...", class_="text-info"),
@@ -461,34 +482,14 @@ def server(input, output, session):
                 ui.input_action_button("btn_run_miner", "Retry Miner", class_="btn-run w-100 mt-4"),
                 class_="p-4 text-center mt-5"
             )
-        
-        cards = [
-            ui.h4("Automated Formulaic Factor Discovery", style="color: white;"),
-            ui.p("Uses PyGP (gplearn Symbolic Regression) to natively evolve and discover automated mathematical alpha synergies.", style="color: white; opacity: 0.9;"),
-            ui.tags.ul(
-                ui.tags.li("Symbolic Regression: Generates thousands of randomized mathematical syntax trees exploring theoretical vectors.", style="color: #c7c7c7; margin-bottom: 5px;"),
-                ui.tags.li("Cross-Sectional Culling: Replaces weaker formulas iteratively using genetic mutation, crossover, and fitness tournament selection.", style="color: #c7c7c7; margin-bottom: 5px;"),
-                ui.tags.li("Parsimony Pressure: Mathematically penalizes formulas that become overly nested to prevent curve-fitting and hallucinatory extraction.", style="color: #c7c7c7; margin-bottom: 5px;"),
-                class_="mb-4"
-            ),
             
-            ui.layout_columns(
-                ui.input_select("miner_universe", tip("Universe Target", "The asset pool the genetic engine uses to train its formulas."), ["R2K", "SP500", "NDX"], selected="SP500"),
-                ui.input_select("miner_horizon", tip("Optimization Horizon", "The forward-looking return window the AI attempts to predict."), choices={"1": "Daily (1-Day)", "5": "Weekly (5-Day)", "21": "Monthly (21-Day)", "63": "Quarterly (63-Day)", "252": "Yearly (252-Day)"}, selected="1"),
-                ui.input_select("miner_fitness", tip("Genetic Fitness Objective", "The mathematical risk or accuracy metric the AI maximizes during evolution."), choices={"ic": "Information Coefficient (Rank)", "mae": "Mean Absolute Error (Magnitude)", "sharpe": "Sharpe Ratio (Return/Risk)", "pnl_dd": "Calmar Ratio (PNL / Max Drawdown)"}, selected="ic"),
-                ui.input_select("miner_funcs", tip("Theoretical Syntax Set", "Restricts the AI to only use specific mathematical functions."), choices={"all": "Unrestricted Matrix (All)", "linear": "Linear Arithmetic (+, -, *, /)", "cross_sectional": "Cross-Sectional Scoring (Rank)", "technical": "Time-Series Technicals (SMA, Delay)"}, selected="all"),
-                ui.input_numeric("miner_generations", tip("Generational Evolution limits", "How many times the AI breeds, mutates, and culls the formulas."), value=3, min=1, max=10),
-                ui.input_numeric("miner_pop", tip("Population Tree Map Size", "The number of formulas generated and tested per generation."), value=100, min=10, max=500),
-                col_widths={"sm": (4, 4, 4, 4, 4, 4)}
-            ),
+        return ui.input_action_button("btn_run_miner", "Launch Factor Miner (Genetic Search)", class_="btn-run w-100 mb-4")
 
-            ui.input_action_button("btn_run_miner", "Launch Factor Miner (Genetic Search)", class_="btn-run w-100 mb-4")
-        ]
-        
+    @render.ui
+    def miner_results_ui():
         results = miner_results_val.get()
         if results:
-            cards.append(ui.hr())
-            cards.append(ui.h4("🏆 Top Discovered Alphabetic Formulas", class_="mt-3 mb-3", style="color: white;"))
+            cards = [ui.hr(), ui.h4("🏆 Top Discovered Alpha Formulas", class_="mt-3 mb-3", style="color: white;")]
             for i, r in enumerate(results):
                 cards.append(
                     ui.div(
@@ -497,7 +498,8 @@ def server(input, output, session):
                         class_="agent-card agent-quant mt-2"
                     )
                 )
-        return ui.div(*cards)
+            return ui.div(*cards)
+        return ui.div()
 
     @reactive.Effect
     def _poll_miner_thread():
