@@ -275,6 +275,8 @@ def discover_alpha_factors(
     results = []
     seen = set()
     feature_names = ["Open", "High", "Low", "Close", "Volume", "Returns"]
+    if "vwap" in df.columns: feature_names.append("VWAP")
+    if "trades" in df.columns: feature_names.append("Trades")
     
     for p in best_programs:
         formula_str = str(p)
