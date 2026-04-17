@@ -897,6 +897,8 @@ def server(input, output, session):
                              theme=ui.value_box_theme(bg=_color(m.get('mean_ic'), 0.02, 0), fg="white")),
                 ui.value_box(tip("IC IR", "Information Ratio of the IC. Determines the consistency of the predictive edge."), _fmt(m.get('ic_ir', 'N/A')),
                              theme=ui.value_box_theme(bg=_color(m.get('ic_ir'), 0.3, 0), fg="white")),
+                ui.value_box(tip("Ann. Turnover", "Annualized fraction of the portfolio principal rotated (Gross)."), _fmt_pct(m.get('ann_turnover', 'N/A')),
+                             theme=ui.value_box_theme(bg=_color(m.get('ann_turnover'), 3.0, 6.0, False), fg="white")),
                 ui.value_box(tip("Universe Size", "Total number of active assets analyzed in the final rebalance."), f"{m.get('n_tickers', '?')}",
                              theme=ui.value_box_theme(bg="#2d3436", fg="white")),
                 gap="12px"
