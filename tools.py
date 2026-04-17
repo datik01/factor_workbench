@@ -444,6 +444,10 @@ def run_cross_sectional_backtest(
         # ── Portfolio construction ───────────────────────────
         leg_size = max(1, portfolio_size // 2)
 
+        # Add microscopic deterministic jitter to break exact index ordering mapping identical overlaps
+        np.random.seed(42)
+        scored["factor_score"] += np.random.normal(0, 1e-12, size=len(scored))
+
         # High score -> rank 1, ..., rank N
         scored["long_rank"] = scored.groupby("date")["factor_score"].rank(method='first', ascending=False)
         # Low score -> rank 1, ..., rank N
