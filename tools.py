@@ -562,9 +562,14 @@ def run_cross_sectional_backtest(
         # Turnover estimate (daily rank changes)
         # Regression
         sample = scored.sample(n=min(10000, len(scored)), random_state=42)
-        slope, intercept, r_val, p_val, std_err = stats.linregress(
-            sample["factor_score"], sample["fwd_return"]
-        )
+        
+        # Prevent linregress crashing if formula produces identical/0-variance array
+        if sample["factor_score"].nunique() > 1:
+            slope, intercept, r_val, p_val, std_err = stats.linregress(
+                sample["factor_score"], sample["fwd_return"]
+            )
+        else:
+            slope, intercept, r_val, p_val, std_err = 0.0, 0.0, 0.0, 1.0, 0.0
 
         # ── Plots ───────────────────────────────────────────
 
