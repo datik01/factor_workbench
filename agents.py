@@ -112,7 +112,8 @@ def run_agentic_workflow(
     tickers: list,
     themes: list,
     custom_formula: str = None,
-    portfolio_size: int = 100,
+    portfolio_size: float = 100,
+    portfolio_sizing_type: str = "Absolute Count",
     strategy_type: str = "Long/Short",
     start_year: int = 2020,
     end_year: int = 2025,
@@ -139,7 +140,7 @@ def run_agentic_workflow(
             f"Generate a hypothesis for the composite '{formatted_themes}' factor strategy. "
             f"The backtest spans {start_year} to {end_year} and rebalances at frequency '{rebalance_freq}'. "
             f"Directional inversion is {'ON (Contrarian tilt)' if invert_factor else 'OFF (Standard tilt)'}. "
-            f"The strategy ranks the entire Russell 2000 universe and targets a '{strategy_type}' portfolio holding exactly {portfolio_size} stocks."
+            f"The strategy ranks the entire Russell 2000 universe and targets a '{strategy_type}' portfolio allocating a bound of {portfolio_size} ({portfolio_sizing_type})."
         ),
     )
     logs.append({"agent": "Hypothesis Generator", "message": hypothesis})
@@ -154,6 +155,7 @@ def run_agentic_workflow(
         themes=themes,
         custom_formula=custom_formula,
         portfolio_size=portfolio_size,
+        portfolio_sizing_type=portfolio_sizing_type,
         strategy_type=strategy_type,
         start_year=start_year,
         end_year=end_year,

@@ -391,8 +391,8 @@ app_ui = ui.page_fluid(
                 ui.h6("Portfolio Configuration"),
                 ui.input_select("strategy_type", tip("Strategy Type", "Dictates capitalization allocation (Long/Short neutral, or directional Long/Short only)."), choices=["Long/Short", "Long Only", "Short Only"]),
                 ui.input_select("quantile_split", tip("Analysis Quantiles", "Splits the ranked universe into N fractional buckets to evaluate top vs bottom tier spreads."), choices={"3": "Tertiles (3)", "4": "Quartiles (4)", "5": "Quintiles (5)", "10": "Deciles (10)"}, selected="5"),
-                ui.input_slider("portfolio_size", tip("Portfolio Size", "Maximum number of assets to hold concurrently."),
-                                min=10, max=1000, value=100, step=10),
+                ui.input_select("portfolio_sizing_type", tip("Portfolio Sizing Logic", "Allocate capital by fixed asset bounds or by dynamic universe percentages."), choices=["Absolute Count", "Percentage"], selected="Absolute Count"),
+                ui.input_numeric("portfolio_size", tip("Portfolio Size / Percent limit", "Enter absolute count of assets (e.g., 100) or total universe percentage (e.g., 20)"), value=100),
                 ui.input_numeric("initial_aum", tip("Initial AUM ($)", "Starting simulation capital dictating absolute dollar returns."), value=1000000),
                 ui.input_slider("year_range", tip("Analysis Period", "Historical year boundaries for testing."), min=2021, max=datetime.now().year, value=(2021, datetime.now().year), sep=""),
                 ui.input_select("rebalance_freq", tip("Rebalance Frequency", "How often the algorithm recalculates ranks and shifts portfolio capital."), 
@@ -662,7 +662,8 @@ def server(input, output, session):
         start_year, end_year = input.year_range()
         initial_aum = input.initial_aum()
         rebalance_freq = input.rebalance_freq()
-        portfolio_size = input.portfolio_size()
+        portfolio_size = float(input.portfolio_size())
+        portfolio_sizing_type = input.portfolio_sizing_type()
         strategy_type = input.strategy_type()
         quantile_split = int(input.quantile_split())
 
@@ -767,6 +768,7 @@ def server(input, output, session):
                     themes=theme_keys,
                     custom_formula=custom_formula_opt,
                     portfolio_size=portfolio_size,
+                    portfolio_sizing_type=portfolio_sizing_type,
                     strategy_type=strategy_type,
                     start_year=start_year,
                     end_year=end_year,

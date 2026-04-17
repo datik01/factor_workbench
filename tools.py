@@ -378,7 +378,8 @@ def run_cross_sectional_backtest(
     tickers: list,
     themes: list,
     custom_formula: str = None,
-    portfolio_size: int = 100,
+    portfolio_size: float = 100,
+    portfolio_sizing_type: str = "Absolute Count",
     strategy_type: str = "Long/Short",
     start_year: int = 2020,
     end_year: int = 2025,
@@ -420,6 +421,7 @@ def run_cross_sectional_backtest(
         
         if invert_factor:
             scored["factor_score"] *= -1
+            scored["factor_rank"] = 1.0 - scored["factor_rank"]
 
         # Remove padded year dates that were only for factor computation, aligning to exact analysis grid
         scored = scored[(scored["date"] >= f"{start_year}-01-01") & (scored["date"] <= f"{end_year}-12-31")]
@@ -435,14 +437,21 @@ def run_cross_sectional_backtest(
                 progress_callback(100, 100, "", f"PIT filter: {pre_count} → {post_count} tickers (survivorship bias-free)")
 
         n_unique = scored["ticker"].nunique()
-        if n_unique < portfolio_size:
-            portfolio_size = max(2, (n_unique // 2) * 2)  # Dynamically bounds to the maximum available even digits
+        
+        if portfolio_sizing_type == "Percentage":
+            actual_size = int(n_unique * (portfolio_size / 100.0))
+            portfolio_size_bound = max(2, (actual_size // 2) * 2)
+        else:
+            portfolio_size_bound = int(portfolio_size)
+            
+        if n_unique < portfolio_size_bound:
+            portfolio_size_bound = max(2, (n_unique // 2) * 2)
 
         if progress_callback:
             progress_callback(0, 100, "", "Executing vectorized backtest constraints...")
 
         # ── Portfolio construction ───────────────────────────
-        leg_size = max(1, portfolio_size // 2)
+        leg_size = max(1, portfolio_size_bound // 2)
 
         # Add microscopic deterministic jitter to break exact index ordering mapping identical overlaps
         np.random.seed(42)
