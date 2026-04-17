@@ -70,6 +70,8 @@ def _fetch_single_ticker(ticker: str, start_date: str, end_date: str) -> pd.Data
                 "low": bar.get("l") or bar.get("low"),
                 "close": bar.get("c") or bar.get("close"),
                 "volume": bar.get("v") or bar.get("volume", 0),
+                "vwap": bar.get("vw"),
+                "trades": bar.get("n"),
             })
         df = pd.DataFrame(records)
         df["date"] = pd.to_datetime(df["date"])
