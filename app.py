@@ -861,7 +861,7 @@ def server(input, output, session):
         return ui.div(
             ui.h6("Strategy Performance Metrics", style="color: #ffffff; margin-bottom: 12px; margin-top: 5px; font-weight: 600; font-size: 1.05rem;"),
             ui.layout_columns(
-                ui.value_box(tip("Total Ret ($)", "Cumulative absolute dollar simulation growth over the tested period."), _fmt_doll(m.get('total_ret_usd', 'N/A')),
+                ui.value_box(tip("Net Profit ($)", "Cumulative absolute dollar simulation growth over the tested period."), _fmt_doll(m.get('total_ret_usd', 'N/A')),
                              theme=ui.value_box_theme(bg="#2d3436", fg="white")),
                 ui.value_box(tip("Strategy Ann. Ret", "The geometric average yearly return."), _fmt_pct(m.get('ann_port_return', 'N/A')),
                              theme=ui.value_box_theme(bg="#2d3436", fg="white")),
