@@ -576,7 +576,11 @@ def run_cross_sectional_backtest(
         ic_ir = mean_ic / ic_by_day.std() if ic_by_day.std() > 0 else 0
 
         # Turnover estimate (daily rank changes)
-        scored["prev_pos"] = scored.groupby("ticker")["position"].shift(1).fillna(0)
+        scored.sort_values(["ticker", "date"], inplace=True)
+        # Vectorized Numpy shift over the boundary
+        boundary_mask = scored["ticker"] == scored["ticker"].shift(1)
+        scored["prev_pos"] = np.where(boundary_mask, scored["position"].shift(1), 0.0)
+        
         scored["trade_abs"] = (scored["position"] - scored["prev_pos"]).abs()
         
         daily_trades = scored.groupby("date")["trade_abs"].sum()
@@ -644,20 +648,15 @@ def run_cross_sectional_backtest(
         )
 
         # 2. Quantile Returns Bar
-        q_labels = [f"Q{i}" for i in range(1, quantiles + 1)]
-        q_labels[0] = "Q1 (Low)"
-        q_labels[-1] = f"Q{quantiles} (High)"
-        try:
-            scored["quintile"] = pd.qcut(
-                scored["factor_rank"], quantiles,
-                labels=q_labels,
-            )
-        except ValueError:
-            # Fallback: force unique ties for binary/saturated GP formulas
-            scored["quintile"] = pd.qcut(
-                scored["factor_rank"].rank(method="first"), quantiles,
-                labels=q_labels,
-            )
+        # Instead of calling pd.qcut (which internally runs multi-second massive sorts and rank(method="first") ties over 2.5M matrices),
+        # convert the native C cross-sectional percentages mathematically directly into categorical groupings.
+        scored["quintile_num"] = np.ceil(scored["factor_rank"] * quantiles).clip(1, quantiles).astype(int)
+        
+        q_map = {i: f"Q{i}" for i in range(1, quantiles + 1)}
+        q_map[1] = "Q1 (Low)"
+        q_map[quantiles] = f"Q{quantiles} (High)"
+        scored["quintile"] = scored["quintile_num"].map(q_map)
+        
         q_returns = scored.groupby("quintile")["fwd_return"].mean() * 252
         
         # Build dynamic color gradient natively
