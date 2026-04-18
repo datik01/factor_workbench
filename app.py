@@ -199,38 +199,6 @@ body {
     box-shadow: 0 8px 32px rgba(0, 212, 170, 0.4) !important;
 }
 
-/* ── Agent Cards ── */
-.agent-card {
-    padding: 18px 20px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    margin-bottom: 14px;
-    transition: transform 0.2s ease;
-    position: relative;
-    overflow: hidden;
-}
-.agent-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 4px;
-}
-.agent-card:hover { transform: translateX(4px); }
-.agent-hypothesis { background: rgba(59, 130, 246, 0.08); }
-.agent-hypothesis::before { background: var(--accent-blue); }
-.agent-quant { background: rgba(0, 212, 170, 0.08); }
-.agent-quant::before { background: var(--accent-teal); }
-.agent-risk { background: rgba(245, 158, 11, 0.08); }
-.agent-risk::before { background: var(--accent-amber); }
-.agent-label {
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: #ffffff;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 10px;
-    opacity: 0.95;
-}
 
 /* ── Header ── */
 .app-title {
@@ -399,7 +367,6 @@ app_ui = ui.page_fluid(
                 ui.input_select("rebalance_freq", tip("Rebalance Frequency", "How often the algorithm recalculates ranks and shifts portfolio capital."), 
                                 choices={"D": "Daily", "W": "Weekly", "M": "Monthly", "Q": "Quarterly", "Y": "Yearly"}, 
                                 selected="M"),
-                ui.input_switch("enable_agents", tip("Enable LLM Analysis Agents", "Triggers 3 local Ollama models to review your backest. WARNING: Takes 3-5 minutes! Disable for instant speed."), value=False),
                 class_="config-section",
             ),
 
@@ -419,9 +386,6 @@ app_ui = ui.page_fluid(
             ),
             ui.nav_panel("📅 P&L Calendar",
                 ui.output_ui("calendar_ui"),
-            ),
-            ui.nav_panel("🤖 Agent Logs",
-                ui.output_ui("agent_logs"),
             ),
             ui.nav_panel("🧬 AI Alpha Miner",
                 ui.h4("Automated Formulaic Factor Discovery", style="color: white; mt-3"),
@@ -499,9 +463,9 @@ def server(input, output, session):
             for i, r in enumerate(results):
                 cards.append(
                     ui.div(
-                        ui.h5(f"Rank {i+1} | Evolution Metric Score: {r['fitness_score']:.4f}", class_="agent-label text-success"),
+                        ui.h5(f"Rank {i+1} | Evolution Metric Score: {r['fitness_score']:.4f}", style="font-weight: 700; font-size: 0.85rem; color: #00d4aa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;"),
                         ui.tags.code(r['formula'], style="font-size: 1.15rem; color: #e5e5e5; font-weight: 500;"),
-                        class_="agent-card agent-quant mt-2"
+                        style="padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 14px; background: rgba(0, 212, 170, 0.08); border-left: 4px solid var(--accent-teal);"
                     )
                 )
             return ui.div(*cards)
@@ -682,7 +646,7 @@ def server(input, output, session):
     @reactive.event(input.run_btn)
     def run_analysis():
         nonlocal cancel_flag
-        from agents import run_agentic_workflow
+        from tools import run_cross_sectional_backtest
 
         if is_running():
             return
@@ -711,7 +675,6 @@ def server(input, output, session):
         strategy_type = input.strategy_type()
         quantile_split = int(input.quantile_split())
         enable_cal_val = input.enable_calendar()
-        enable_agents_val = input.enable_agents()
 
         if custom_formula_opt:
             status_msg.set(f"Initializing Automated Custom Alpha Formula composite...")
@@ -809,7 +772,8 @@ def server(input, output, session):
                     if not dynamic_tickers:
                         raise ValueError(f"Failed to rebuild SEC data for {active_universe}")
 
-                res = run_agentic_workflow(
+                import json
+                res_str = run_cross_sectional_backtest(
                     tickers=dynamic_tickers,
                     themes=theme_keys,
                     custom_formula=custom_formula_opt,
@@ -826,9 +790,8 @@ def server(input, output, session):
                     benchmark_ticker=benchmark_ticker,
                     quantiles=quantile_split,
                     enable_calendar=enable_cal_val,
-                    enable_agents=enable_agents_val,
                 )
-                progress_state["res"] = res
+                progress_state["res"] = json.loads(res_str)
             except Exception as e:
                 progress_state["error"] = str(e)
             finally:
@@ -1003,38 +966,6 @@ def server(input, output, session):
                 html_parts.append(iframe)
 
         return ui.HTML(f"<div style='margin-top: 16px; display: flex; flex-direction: column; gap: 24px;'>{''.join(html_parts)}</div>")
-
-    @output
-    @render.ui
-    def agent_logs():
-        res = workflow_result()
-        if not res or "error" in res:
-            return ui.HTML(
-                '<div style="text-align: center; padding: 50px; color: #555;">'
-                '🤖 Agent analysis logs will appear here after running.</div>'
-            )
-
-        logs = res.get("logs", [])
-        cards = []
-        for log in logs:
-            agent = log.get("agent", "Unknown")
-            msg = log.get("message", "").replace("\n", "<br>")
-
-            css = "agent-hypothesis" if "Hypothesis" in agent else (
-                "agent-quant" if "Quant" in agent else (
-                    "agent-risk" if "Risk" in agent else ""))
-            icon = "🧪" if "Hypothesis" in agent else (
-                "📊" if "Quant" in agent else (
-                    "🛡️" if "Risk" in agent else "⚠️"))
-
-            cards.append(f"""
-            <div class="agent-card {css}">
-                <div class="agent-label">{icon} {agent}</div>
-                <div style="font-size: 0.9rem; line-height: 1.6; color: #c8cad0;">{msg}</div>
-            </div>
-            """)
-
-        return ui.HTML(f"<div style='margin-top: 14px;'>{''.join(cards)}</div>")
 
 
 app = App(app_ui, server)
