@@ -210,23 +210,32 @@ def execute_gplearn_formula(df: pd.DataFrame, formula_str: str) -> np.ndarray:
     t_mask_10 = (df['ticker'] != df['ticker'].shift(9)).values
     t_mask_20 = (df['ticker'] != df['ticker'].shift(19)).values
     
+    def _arr(x):
+        if isinstance(x, (float, int)): return np.full(len(df), float(x))
+        return np.asarray(x)
+
     def delay_5(a):
+        a = _arr(a)
         r = np.roll(a, 5)
         r[:5] = a[:5]; r[t_mask_5] = a[t_mask_5]
         return r
     def sma_10(a):
+        a = _arr(a)
         r = pd.Series(a).rolling(10).mean().bfill().values
         r[t_mask_10] = a[t_mask_10]
         return r
     def sma_20(a):
+        a = _arr(a)
         r = pd.Series(a).rolling(20).mean().bfill().values
         r[t_mask_20] = a[t_mask_20]
         return r
     def ts_max_20(a):
+        a = _arr(a)
         r = pd.Series(a).rolling(20).max().bfill().values
         r[t_mask_20] = a[t_mask_20]
         return r
     def ts_min_20(a):
+        a = _arr(a)
         r = pd.Series(a).rolling(20).min().bfill().values
         r[t_mask_20] = a[t_mask_20]
         return r
@@ -235,11 +244,13 @@ def execute_gplearn_formula(df: pd.DataFrame, formula_str: str) -> np.ndarray:
     t_mask_26 = (df['ticker'] != df['ticker'].shift(25)).values
     
     def vol_20(a):
+        a = _arr(a)
         r = pd.Series(a).rolling(20).std().bfill().values
         r[t_mask_20] = 0.0 
         return r
 
     def rsi_14(a):
+        a = _arr(a)
         delta = pd.Series(a).diff()
         gain = (delta.where(delta > 0, 0)).fillna(0)
         loss = (-delta.where(delta < 0, 0)).fillna(0)
@@ -252,6 +263,7 @@ def execute_gplearn_formula(df: pd.DataFrame, formula_str: str) -> np.ndarray:
         return r
 
     def macd_line(a):
+        a = _arr(a)
         sema = pd.Series(a).ewm(span=12, adjust=False).mean()
         lema = pd.Series(a).ewm(span=26, adjust=False).mean()
         r = (sema - lema).values

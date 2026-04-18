@@ -180,39 +180,49 @@ GLOBAL_MASK_14 = None
 GLOBAL_MASK_20 = None
 GLOBAL_MASK_26 = None
 
+def _arr(x, mask_len):
+    if isinstance(x, (float, int)): return np.full(mask_len, float(x))
+    return np.nan_to_num(x)
+
 def _ts_delay_5(x):
     if GLOBAL_MASK_5 is None: return np.zeros_like(x)
-    res = np.roll(np.nan_to_num(x), 5)
+    x_val = _arr(x, len(GLOBAL_MASK_5))
+    res = np.roll(x_val, 5)
     res[GLOBAL_MASK_5] = np.nan
     return np.nan_to_num(res)
 
 def _ts_sma_10(x):
     if GLOBAL_MASK_10 is None: return np.zeros_like(x)
-    res = pd.Series(np.nan_to_num(x)).rolling(10).mean().values
+    x_val = _arr(x, len(GLOBAL_MASK_10))
+    res = pd.Series(x_val).rolling(10).mean().values
     res[GLOBAL_MASK_10] = np.nan
     return np.nan_to_num(res)
 
 def _ts_sma_20(x):
     if GLOBAL_MASK_20 is None: return np.zeros_like(x)
-    res = pd.Series(np.nan_to_num(x)).rolling(20).mean().values
+    x_val = _arr(x, len(GLOBAL_MASK_20))
+    res = pd.Series(x_val).rolling(20).mean().values
     res[GLOBAL_MASK_20] = np.nan
     return np.nan_to_num(res)
 
 def _ts_max_20(x):
     if GLOBAL_MASK_20 is None: return np.zeros_like(x)
-    res = pd.Series(np.nan_to_num(x)).rolling(20).max().values
+    x_val = _arr(x, len(GLOBAL_MASK_20))
+    res = pd.Series(x_val).rolling(20).max().values
     res[GLOBAL_MASK_20] = np.nan
     return np.nan_to_num(res)
 
 def _ts_min_20(x):
     if GLOBAL_MASK_20 is None: return np.zeros_like(x)
-    res = pd.Series(np.nan_to_num(x)).rolling(20).min().values
+    x_val = _arr(x, len(GLOBAL_MASK_20))
+    res = pd.Series(x_val).rolling(20).min().values
     res[GLOBAL_MASK_20] = np.nan
     return np.nan_to_num(res)
 
 def _ts_rsi_14(x):
     if GLOBAL_MASK_14 is None: return np.zeros_like(x) + 50.0
-    delta = pd.Series(np.nan_to_num(x)).diff()
+    x_val = _arr(x, len(GLOBAL_MASK_14))
+    delta = pd.Series(x_val).diff()
     gain = (delta.where(delta > 0, 0)).fillna(0)
     loss = (-delta.where(delta < 0, 0)).fillna(0)
     avg_gain = gain.rolling(14).mean().bfill()
@@ -225,15 +235,17 @@ def _ts_rsi_14(x):
 
 def _ts_macd_line(x):
     if GLOBAL_MASK_26 is None: return np.zeros_like(x)
-    sema = pd.Series(np.nan_to_num(x)).ewm(span=12, adjust=False).mean()
-    lema = pd.Series(np.nan_to_num(x)).ewm(span=26, adjust=False).mean()
+    x_val = _arr(x, len(GLOBAL_MASK_26))
+    sema = pd.Series(x_val).ewm(span=12, adjust=False).mean()
+    lema = pd.Series(x_val).ewm(span=26, adjust=False).mean()
     res = (sema - lema).values
     res[GLOBAL_MASK_26] = 0.0
     return np.nan_to_num(res)
 
 def _ts_vol_20(x):
     if GLOBAL_MASK_20 is None: return np.zeros_like(x)
-    res = pd.Series(np.nan_to_num(x)).rolling(20).std().bfill().values
+    x_val = _arr(x, len(GLOBAL_MASK_20))
+    res = pd.Series(x_val).rolling(20).std().bfill().values
     res[GLOBAL_MASK_20] = 0.0
     return np.nan_to_num(res)
 
