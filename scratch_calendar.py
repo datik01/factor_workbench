@@ -4,6 +4,10 @@ import datetime
 import calendar
 
 def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None) -> str:
+    str_holdings = {}
+    if daily_holdings:
+        str_holdings = {k.strftime('%Y-%m-%d') if hasattr(k, 'strftime') else str(k)[:10]: v for k, v in daily_holdings.items()}
+        
     # strat_ret index is datetime, values are floats (returns)
     df = strat_ret.to_frame(name="ret")
     df['date'] = df.index
@@ -76,6 +80,8 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
             html += f"<tr><th colspan='8' class='month'><div>{month_name} {yr} <span class='pnl {month_win_class}' style='float:right;'>Total: {month_ret*100:.2f}%</span></div></th></tr>"
             html += "<tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th><th class='weekly-pnl'>Weekly PnL</th></tr>"
             
+            ret_dict = sub_df.set_index('day')['ret'].to_dict()
+            
             cal = calendar.monthcalendar(yr, mo)
             for week in cal:
                 html += "<tr>"
@@ -86,18 +92,17 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
                     if day == 0:
                         html += "<td class='noday'></td>"
                     else:
-                        date_str = f"{yr}-{mo:02d}-{day:02d}"
-                        date_idx = pd.to_datetime(date_str)
-                        if date_idx in sub_df.index:
-                            r = sub_df.loc[date_idx, 'ret']
+                        if day in ret_dict:
+                            r = ret_dict[day]
                             week_rets.append(r)
                             r_class = 'win' if r > 0 else ('loss' if r < 0 else 'notrade')
                             r_str = f"{r*100:+.2f}%"
                             
+                            date_str = f"{yr}-{mo:02d}-{day:02d}"
                             l_joined = ""
                             s_joined = ""
-                            if daily_holdings and date_idx in daily_holdings:
-                                h = daily_holdings[date_idx]
+                            if str_holdings and date_str in str_holdings:
+                                h = str_holdings[date_str]
                                 l_joined = ",".join(h.get('longs', []))
                                 s_joined = ",".join(h.get('shorts', []))
                                 

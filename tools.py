@@ -719,11 +719,14 @@ def run_cross_sectional_backtest(
         daily_holdings = {}
         # Pre-filter for active positions to minimize grouped iteration payload
         active_positions = scored[scored['position'] != 0.0]
-        # Group by date once utilizing high-speed C-engine
-        for d, day_df in active_positions.groupby('date'):
-            longs = day_df[day_df['position'] == 1.0]['ticker'].tolist()
-            shorts = day_df[day_df['position'] == -1.0]['ticker'].tolist()
-            daily_holdings[pd.to_datetime(d)] = {"longs": longs, "shorts": shorts}
+        longs_df = active_positions[active_positions['position'] == 1.0].groupby('date')['ticker'].apply(list).to_dict()
+        shorts_df = active_positions[active_positions['position'] == -1.0].groupby('date')['ticker'].apply(list).to_dict()
+        
+        # O(1) dictionary routing natively outpaces Python looping overheads
+        daily_holdings = {
+            pd.to_datetime(d): {"longs": longs_df.get(d, []), "shorts": shorts_df.get(d, [])}
+            for d in active_positions['date'].unique()
+        }
 
         latest_date_str = latest_date.strftime("%Y-%m-%d") if hasattr(latest_date, 'strftime') else str(latest_date)[:10]
 
