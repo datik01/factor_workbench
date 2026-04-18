@@ -17,6 +17,41 @@ warnings.filterwarnings('ignore', category=UserWarning)
 # Fitness Metrics & Primitives (Genetic Programming POC)
 # ═══════════════════════════════════════════════════════════════
 
+ENFORCE_MONOTONICITY = False
+
+def _check_monotonicity_penalty(y_m, pred_m):
+    """
+    C-level vectorized Quintile binning to ensure [Q1_ret, Q2_ret, Q3_ret, Q4_ret, Q5_ret] is monotonically increasing.
+    Returns 1.0 if highly monotonic (Spearman > 0.8), else 0.0 (death penalty).
+    """
+    if not ENFORCE_MONOTONICITY:
+        return 1.0
+        
+    try:
+        # Reject mathematically stagnant matrices (constants/0-variance)
+        if np.var(pred_m) < 1e-6: return 0.0
+        
+        # 1-pass extraction of 4 decile bounds
+        boundaries = np.quantile(pred_m, [0.2, 0.4, 0.6, 0.8])
+        # Reject over-saturated trees that collapse bins
+        if len(np.unique(boundaries)) < 4: return 0.0
+            
+        bins = np.digitize(pred_m, boundaries)
+        counts = np.bincount(bins)
+        if np.any(counts == 0): return 0.0
+        
+        means = np.bincount(bins, weights=y_m) / counts
+        
+        from scipy.stats import spearmanr
+        corr, _ = spearmanr(means, [0, 1, 2, 3, 4])
+        
+        if np.isnan(corr) or corr < 0.8 or means[0] >= means[-1]:
+            return 0.0
+            
+        return 1.0
+    except Exception:
+        return 0.0
+
 def _ic_metric(y, y_pred, w):
     """
     Evaluates fitness based on Cross-Sectional Information Coefficient (IC).
@@ -51,7 +86,8 @@ def _ic_metric(y, y_pred, w):
     if np.isnan(r):
         return 0.0
         
-    return abs(r)
+    penalty = _check_monotonicity_penalty(y_m, pred_m)
+    return abs(r) * penalty
 
 # Map metric to gplearn
 ic_fitness = make_fitness(function=_ic_metric, greater_is_better=True)
@@ -76,7 +112,8 @@ def _sharpe_metric(y, y_pred, w):
     std = np.std(daily_pnl)
     if std < 1e-6: return 0.0
     
-    return np.mean(daily_pnl) / std
+    penalty = _check_monotonicity_penalty(y_m, pred_m)
+    return (np.mean(daily_pnl) / std) * penalty
 
 def _pnl_dd_metric(y, y_pred, w):
     mask = ~np.isnan(y_pred) & ~np.isnan(y) & ~np.isinf(y_pred)
@@ -104,7 +141,9 @@ def _pnl_dd_metric(y, y_pred, w):
     total_pnl = cum_pnl[-1]
     
     if total_pnl <= 0: return total_pnl
-    return total_pnl / (max_dd + 1e-4)
+    
+    penalty = _check_monotonicity_penalty(y_m, pred_m)
+    return (total_pnl / (max_dd + 1e-4)) * penalty
 
 sharpe_fitness = make_fitness(function=_sharpe_metric, greater_is_better=True)
 pnl_dd_fitness = make_fitness(function=_pnl_dd_metric, greater_is_better=True)
@@ -206,11 +245,15 @@ def discover_alpha_factors(
     horizon: int = 1,
     fitness_metric: str = "ic",
     syntax_set: str = "all",
+    enforce_monotonicity: bool = False,
     progress_callback=None
 ):
     """
     Executes a GPU-capable/Threaded Symbolic Regression to discover synergistic alpha formulas natively targeting a bounded predictive horizon.
     """
+    global ENFORCE_MONOTONICITY
+    ENFORCE_MONOTONICITY = enforce_monotonicity
+    
     if progress_callback: 
         progress_callback(10, "Aligning Target Tensors...")
     

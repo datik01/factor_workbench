@@ -438,7 +438,8 @@ app_ui = ui.page_fluid(
                     ui.input_select("miner_funcs", tip("Theoretical Syntax Set", "Restricts the AI to only use specific mathematical functions."), choices={"all": "Unrestricted Matrix (All)", "linear": "Linear Arithmetic (+, -, *, /)", "cross_sectional": "Cross-Sectional Scoring (Rank)", "technical": "Time-Series Technicals (SMA, Delay)"}, selected="all"),
                     ui.input_numeric("miner_generations", tip("Generational Evolution limits", "How many times the AI breeds, mutates, and culls the formulas."), value=3, min=1, max=10),
                     ui.input_numeric("miner_pop", tip("Population Tree Map Size", "The number of formulas generated and tested per generation."), value=100, min=10, max=500),
-                    col_widths={"sm": (4, 4, 4, 4, 4, 4)},
+                    ui.input_switch("miner_monotonicity", tip("Enforce Monotonic Quantiles", "Strictly kills factors where Q1->Q5 returns are not linearly scaling (e.g. U-shaped curves)."), value=True),
+                    col_widths={"sm": (4, 4, 4, 4, 4, 4, 12)},
                     class_="mb-4",
                     fill=False,
                     fillable=False
@@ -539,6 +540,7 @@ def server(input, output, session):
         m_horizon = int(input.miner_horizon())
         m_fitness = input.miner_fitness()
         m_funcs = input.miner_funcs()
+        m_monotonicity = input.miner_monotonicity()
         start_y, end_y = input.year_range()
 
         def _bg_miner():
@@ -552,7 +554,16 @@ def server(input, output, session):
                 df = tools.fetch_universe_data(tickers, start_y, end_y, force_refresh=False)
                 
                 miner_cb(20, f"Executing Genetic Evolution (Pop: {m_pop}, Gens: {m_gens}, Horizon: {m_horizon}d)...")
-                results = discover_alpha_factors(df, generations=m_gens, pop_size=m_pop, horizon=m_horizon, fitness_metric=m_fitness, syntax_set=m_funcs, progress_callback=miner_cb)
+                results = discover_alpha_factors(
+                    df, 
+                    generations=m_gens, 
+                    pop_size=m_pop, 
+                    horizon=m_horizon, 
+                    fitness_metric=m_fitness, 
+                    syntax_set=m_funcs, 
+                    enforce_monotonicity=m_monotonicity,
+                    progress_callback=miner_cb
+                )
                 
                 miner_progress_state["res"] = results
             except Exception as e:
