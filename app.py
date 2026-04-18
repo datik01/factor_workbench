@@ -383,6 +383,7 @@ app_ui = ui.page_fluid(
                 ui.input_text("custom_formula", tip("🧪 Custom GP Alpha Formula", "Inject an exact mathematical PyGP syntax tree to bypass standard themes."), placeholder="e.g. sqrt(div(Open, Low)) (Overrides themes)"),
                 ui.input_select("mined_formula_dropdown", tip("🧬 Selected Mined Alpha", "Pull winning formulas from the Alpha Miner output."), choices={"None": "None"}, selected="None"),
                 ui.input_switch("invert_factor", tip("Invert Factor (Low to High)", "Flips the strategy to buy the lowest scoring stocks instead of the highest."), value=False),
+                ui.input_switch("enable_calendar", tip("Generate P&L Calendar", "Disable to massively speed up backtest finalization by bypassing HTML construction."), value=True),
                 class_="config-section",
             ),
 
@@ -594,6 +595,32 @@ def server(input, output, session):
         ui.modal_remove()
 
     @reactive.Effect
+    @reactive.event(input.cal_cell_click)
+    def handle_cal_cell_click():
+        click_data = input.cal_cell_click()
+        if not click_data: return
+        parts = click_data.split('|')
+        if len(parts) >= 3:
+            date_str = parts[0]
+            l_arr = [x for x in parts[1].split(',') if x.strip()]
+            s_arr = [x for x in parts[2].split(',') if x.strip()]
+            
+            content = ui.div(
+                ui.h6(f"Longs ({len(l_arr)})", style="color: #00d4aa;"),
+                ui.p(", ".join(l_arr) if l_arr else "None", style="word-break: break-all; opacity: 0.9; line-height: 1.6;"),
+                ui.hr(style="border-color: #2a2e39;"),
+                ui.h6(f"Shorts ({len(s_arr)})", style="color: #ff6b6b;"),
+                ui.p(", ".join(s_arr) if s_arr else "None", style="word-break: break-all; opacity: 0.9; line-height: 1.6;")
+            )
+            ui.modal_show(ui.modal(
+                content,
+                title=f"Traded Stocks - {date_str}",
+                size="l",
+                easy_close=True,
+                footer=ui.modal_button("Close")
+            ))
+
+    @reactive.Effect
     def _poll_bg_thread():
         if not is_running():
             return
@@ -784,6 +811,7 @@ def server(input, output, session):
                     constituent_timeline=timeline,
                     benchmark_ticker=benchmark_ticker,
                     quantiles=quantile_split,
+                    enable_calendar=input.enable_calendar(),
                 )
                 progress_state["res"] = res
             except Exception as e:

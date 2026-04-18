@@ -36,34 +36,7 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
         .trade_day:hover { background-color: #2a2e39; }
         .td-content { display: flex; flex-direction: column; height: 100%; }
         .td-header { display: flex; justify-content: space-between; align-items: baseline; }
-        
-        .modal-overlay { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
-        .modal-box { background-color: #161a26; border: 1px solid #252a3a; border-radius: 12px; padding: 20px; min-width: 300px; max-width: 500px; max-height: 80vh; overflow-y: auto; color: white; text-align: left; }
-        .modal-close { float: right; cursor: pointer; font-size: 20px; font-weight: bold; color: #8b90a0; }
-        .modal-close:hover { color: white; }
     </style>
-    
-    <div id="holdingsModal" class="modal-overlay" onclick="if(event.target === this) this.style.display='none'">
-        <div class="modal-box">
-            <span class="modal-close" onclick="document.getElementById('holdingsModal').style.display='none'">&times;</span>
-            <h4 id="modalTitle" style="margin-top:0">Holdings</h4>
-            <div id="modalContent" style="margin-top:15px; font-size: 14px; line-height: 1.6;"></div>
-        </div>
-    </div>
-    
-    <script>
-    function showHoldings(dateStr, longsStr, shortsStr) {
-        document.getElementById('modalTitle').innerText = "Traded Stocks - " + dateStr;
-        let l_arr = longsStr ? longsStr.split(',') : [];
-        let s_arr = shortsStr ? shortsStr.split(',') : [];
-        let content = "<strong>Longs (" + l_arr.length + ")</strong><br><span style='color:#00d4aa;'>" +
-                      (l_arr.length > 0 ? l_arr.join(', ') : 'None') + "</span>" + 
-                      "<br><br><strong>Shorts (" + s_arr.length + ")</strong><br><span style='color:#ff6b6b;'>" +
-                      (s_arr.length > 0 ? s_arr.join(', ') : 'None') + "</span>";
-        document.getElementById('modalContent').innerHTML = content;
-        document.getElementById('holdingsModal').style.display = 'flex';
-    }
-    </script>
     <div class="cal-wrapper">
     """
     
@@ -106,7 +79,7 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
                                 l_joined = ",".join(h.get('longs', []))
                                 s_joined = ",".join(h.get('shorts', []))
                                 
-                            html += f"<td class='trade_day' onclick=\"showHoldings('{date_str}', '{l_joined}', '{s_joined}')\">"
+                            html += f"<td class='trade_day' onclick=\"Shiny.setInputValue('cal_cell_click', '{date_str}|{l_joined}|{s_joined}', {{priority: 'event'}})\">"
                             html += f"<div class='td-content'>"
                             html += f"<div class='td-header'><span class='daynum'>{day}</span><span class='pnl {r_class}'>{r_str}</span></div>"
                             html += f"</div></td>"
