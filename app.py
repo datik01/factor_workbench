@@ -415,6 +415,9 @@ app_ui = ui.page_fluid(
                 ui.output_ui("value_boxes"),
                 ui.output_ui("plots_ui"),
             ),
+            ui.nav_panel("📅 P&L Calendar",
+                ui.output_ui("calendar_ui"),
+            ),
             ui.nav_panel("🤖 Agent Logs",
                 ui.output_ui("agent_logs"),
             ),
@@ -808,6 +811,21 @@ def server(input, output, session):
             with open(txt_path) as _f:
                 return str(len([t for t in _f.readlines() if t.strip()]))
         return "Not Cached"
+
+    @output
+    @render.ui
+    def calendar_ui():
+        res = workflow_result.get()
+        if res is None:
+            return ui.HTML('<div style="color: #f59e0b; padding: 20px;">Run a backtest to populate calendar.</div>')
+        if "error" in res:
+            return ui.HTML(f'<div style="color: #ef4444; padding: 20px;">⚠️ {res["error"]}</div>')
+
+        html_str = res.get("metrics", {}).get("calendar_html", "")
+        if not html_str:
+            return ui.HTML('<div style="color: #f59e0b; padding: 20px;">No Calendar Data Available.</div>')
+            
+        return ui.HTML(html_str)
 
     @output
     @render.ui

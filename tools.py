@@ -22,6 +22,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
+from scratch_calendar import generate_pnl_calendar_html
 
 # ═══════════════════════════════════════════════════════════════
 # Configuration
@@ -717,12 +718,25 @@ def run_cross_sectional_backtest(
         current_longs = latest_cross_section[latest_cross_section["position"] == 1.0]["ticker"].tolist()
         current_shorts = latest_cross_section[latest_cross_section["position"] == -1.0]["ticker"].tolist()
 
+        strat_ret = daily_port_ret
+        strat_ret.index = pd.to_datetime(strat_ret.index)
+
+        daily_holdings = {}
+        # Pre-filter for active positions to minimize grouped iteration payload
+        active_positions = scored[scored['position'] != 0.0]
+        # Group by date once utilizing high-speed C-engine
+        for d, day_df in active_positions.groupby('date'):
+            longs = day_df[day_df['position'] == 1.0]['ticker'].tolist()
+            shorts = day_df[day_df['position'] == -1.0]['ticker'].tolist()
+            daily_holdings[pd.to_datetime(d)] = {"longs": longs, "shorts": shorts}
+
         latest_date_str = latest_date.strftime("%Y-%m-%d") if hasattr(latest_date, 'strftime') else str(latest_date)[:10]
 
         metrics = {
             "latest_date": latest_date_str,
             "current_longs": current_longs,
             "current_shorts": current_shorts,
+            "calendar_html": generate_pnl_calendar_html(strat_ret, daily_holdings),
             "sharpe_ratio": round(sharpe, 3),
             "ann_alpha": round(alpha, 4),
             "ann_port_return": round(ann_port, 4),
