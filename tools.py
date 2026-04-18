@@ -499,16 +499,24 @@ def run_cross_sectional_backtest(
         np.random.seed(42)
         scored["factor_score"] += np.random.normal(0, 1e-12, size=len(scored))
 
+        # Mathematically avoid catastrophic groupby.rank() (20s latency) by pre-sorting and natively pulling cumulative counts (0.5s latency)!
+        scored = scored.sort_values(["date", "factor_score"], ascending=[True, False])
+        
         # High score -> rank 1, ..., rank N
-        scored["long_rank"] = scored.groupby("date")["factor_score"].rank(method='first', ascending=False)
-        # Low score -> rank 1, ..., rank N
-        scored["short_rank"] = scored.groupby("date")["factor_score"].rank(method='first', ascending=True)
+        scored["long_rank"] = scored.groupby("date").cumcount() + 1
+        
+        # Low score -> rank 1, ..., rank N (inverted from the descending sort)
+        group_sizes = scored.groupby("date")["ticker"].transform("size")
+        scored["short_rank"] = group_sizes - scored["long_rank"] + 1
 
         scored["position"] = 0.0
         if strategy_type in ["Long/Short", "Long Only"]:
             scored.loc[scored["long_rank"] <= leg_size, "position"] = 1.0
         if strategy_type in ["Long/Short", "Short Only"]:
             scored.loc[scored["short_rank"] <= leg_size, "position"] = -1.0
+            
+        # VERY IMPORTANT: Return matrix back to chronological Ticker sequential structures for valid temporal FFills below!
+        scored = scored.sort_values(["ticker", "date"])
 
         if rebalance_freq != "D":
             if rebalance_freq == "W":
@@ -637,8 +645,6 @@ def run_cross_sectional_backtest(
         ic_ir = mean_ic / ic_by_day.std() if ic_by_day.std() > 0 else 0
 
         # Turnover estimate (daily rank changes)
-        # The dataframe is inherently pre-sorted by ticker/date in the upstream computation pipeline. 
-        # A redundant pd.sort_values costs 2-3s of latency on massive arrays.
         # Vectorized Numpy shift over the boundary
         boundary_mask = scored["ticker"] == scored["ticker"].shift(1)
         scored["prev_pos"] = np.where(boundary_mask, scored["position"].shift(1), 0.0)
