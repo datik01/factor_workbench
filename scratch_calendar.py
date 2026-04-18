@@ -42,6 +42,12 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
     
     # Iterate over years
     for yr in sorted(df['year'].unique()):
+        year_df = df[df['year'] == yr]
+        year_ret = (1 + year_df['ret']).prod() - 1
+        year_win_class = 'win' if year_ret > 0 else 'loss'
+        
+        html += f"<div style='font-size: 2em; font-weight: bold; margin: 30px 0 10px 0; border-bottom: 2px solid #434651; padding-bottom: 5px; color: #ffffff;'>{yr}: Yearly PNL <span class='pnl {year_win_class}' style='font-size: 0.8em; margin-left: 10px;'>{year_ret*100:+.2f}%</span></div>"
+        
         # Iterate over months
         for mo in sorted(df[df['year'] == yr]['month'].unique()):
             month_name = calendar.month_name[mo]
@@ -50,7 +56,7 @@ def generate_pnl_calendar_html(strat_ret: pd.Series, daily_holdings: dict = None
             month_win_class = 'win' if month_ret > 0 else 'loss'
             
             html += f"<table class='calendar_table'>"
-            html += f"<tr><th colspan='8' class='month'><div>{month_name} {yr} <span class='pnl {month_win_class}' style='float:right;'>Total: {month_ret*100:.2f}%</span></div></th></tr>"
+            html += f"<tr><th colspan='8' class='month'><div>{month_name} {yr} <span class='pnl {month_win_class}' style='float:right;'>Monthly PNL: {month_ret*100:+.2f}%</span></div></th></tr>"
             html += "<tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th><th class='weekly-pnl'>Weekly PnL</th></tr>"
             
             ret_dict = sub_df.set_index('day')['ret'].to_dict()

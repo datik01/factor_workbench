@@ -970,7 +970,7 @@ def server(input, output, session):
             return ui.HTML("")
 
         html_parts = []
-        for key in ["equity_json", "quintile_json", "ic_json", "drawdown_json"]:
+        for key in ["equity_json", "yearly_json", "quintile_json", "ic_json", "drawdown_json"]:
             chart_json = res["plots"].get(key)
             if chart_json:
                 fig = pio.from_json(chart_json)
@@ -983,7 +983,7 @@ def server(input, output, session):
                 
                 # Encode b64 to bypass script-stripping in Shiny's ui.HTML
                 b64 = base64.b64encode(raw_html.encode("utf-8")).decode("utf-8")
-                height = "470px" if key == "equity_json" else "380px"
+                height = "470px" if key == "equity_json" else ("380px" if key in ["quintile_json", "ic_json"] else "320px")
                 
                 iframe = f'<iframe src="data:text/html;base64,{b64}" style="width: 100%; height: {height}; border: none; overflow: hidden; border-radius: 8px;" scrolling="no"></iframe>'
                 html_parts.append(iframe)

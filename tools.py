@@ -708,6 +708,26 @@ def run_cross_sectional_backtest(
             xaxis_title="Date", yaxis_title="Drawdown",
             template="plotly_dark", height=300,
         )
+
+        # 5. Yearly PNL Bar Chart
+        if "year" not in combined.columns:
+            combined["year"] = combined.index.year
+        yearly_pnl = combined.groupby("year")["port_return"].apply(lambda x: (1 + x).prod() - 1)
+        
+        fig_yearly = go.Figure()
+        fig_yearly.add_trace(go.Bar(
+            x=yearly_pnl.index.astype(str), y=yearly_pnl.values,
+            marker_color=["#00d4aa" if v > 0 else "#ff6b6b" for v in yearly_pnl.values],
+            text=[f"{v*100:+.1f}%" for v in yearly_pnl.values],
+            textposition="auto",
+        ))
+        fig_yearly.add_hline(y=0, line_color="white", opacity=0.3)
+        fig_yearly.update_layout(
+            title="Yearly Portfolio Net Return",
+            xaxis_title="Year", yaxis_title="Return",
+            template="plotly_dark", height=320,
+            yaxis=dict(tickformat=".1%"),
+        )
         # Extract Live Triggers (Latest Date)
         latest_date = scored["date"].max()
         latest_cross_section = scored[scored["date"] == latest_date]
@@ -776,6 +796,7 @@ def run_cross_sectional_backtest(
             "metrics": metrics,
             "plots": {
                 "equity_json": fig_equity.to_json(),
+                "yearly_json": fig_yearly.to_json(),
                 "quintile_json": fig_qbar.to_json(),
                 "ic_json": fig_ic.to_json(),
                 "drawdown_json": fig_dd.to_json(),
