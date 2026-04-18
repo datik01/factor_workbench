@@ -695,9 +695,8 @@ def run_cross_sectional_backtest(
         q_map = {i: f"Q{i}" for i in range(1, quantiles + 1)}
         q_map[1] = "Q1 (Low)"
         q_map[quantiles] = f"Q{quantiles} (High)"
-        scored["quintile"] = scored["quintile_num"].map(q_map)
-        
-        q_returns = scored.groupby("quintile")["fwd_return"].mean() * 252
+        q_returns = scored.groupby("quintile_num")["fwd_return"].mean() * 252
+        q_returns.index = q_returns.index.map(q_map)
         
         # Build dynamic color gradient natively
         from plotly.colors import sample_colorscale
