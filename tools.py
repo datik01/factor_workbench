@@ -231,12 +231,40 @@ def execute_gplearn_formula(df: pd.DataFrame, formula_str: str) -> np.ndarray:
         r[t_mask_20] = a[t_mask_20]
         return r
 
+    t_mask_14 = (df['ticker'] != df['ticker'].shift(13)).values
+    t_mask_26 = (df['ticker'] != df['ticker'].shift(25)).values
+    
+    def vol_20(a):
+        r = pd.Series(a).rolling(20).std().bfill().values
+        r[t_mask_20] = 0.0 
+        return r
+
+    def rsi_14(a):
+        delta = pd.Series(a).diff()
+        gain = (delta.where(delta > 0, 0)).fillna(0)
+        loss = (-delta.where(delta < 0, 0)).fillna(0)
+        avg_gain = gain.rolling(14).mean().bfill()
+        avg_loss = loss.rolling(14).mean().bfill()
+        rs = avg_gain / avg_loss.replace(0, 1e-5)
+        rsi = 100 - (100 / (1 + rs))
+        r = rsi.values
+        r[t_mask_14] = 50.0  # Reset to neutral cross-ticker boundary
+        return r
+
+    def macd_line(a):
+        sema = pd.Series(a).ewm(span=12, adjust=False).mean()
+        lema = pd.Series(a).ewm(span=26, adjust=False).mean()
+        r = (sema - lema).values
+        r[t_mask_26] = 0.0 # Reset cross-ticker boundary
+        return r
+
     # Pre-parse memory bindings matching factor_miner's target states
     env = {
         "add": add, "sub": sub, "mul": mul, "div": div,
         "abs": abs_f, "sqrt": sqrt, "log": log, "rank": rank,
         "delay_5": delay_5, "sma_10": sma_10, "sma_20": sma_20, 
         "ts_max_20": ts_max_20, "ts_min_20": ts_min_20,
+        "vol_20": vol_20, "rsi_14": rsi_14, "macd_line": macd_line,
         "Open": df["open"].values,
         "High": df["high"].values,
         "Low": df["low"].values,
