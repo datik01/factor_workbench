@@ -698,6 +698,7 @@ def server(input, output, session):
         portfolio_sizing_type = input.portfolio_sizing_type()
         strategy_type = input.strategy_type()
         quantile_split = int(input.quantile_split())
+        enable_cal_val = input.enable_calendar()
 
         if custom_formula_opt:
             status_msg.set(f"Initializing Automated Custom Alpha Formula composite...")
@@ -811,7 +812,7 @@ def server(input, output, session):
                     constituent_timeline=timeline,
                     benchmark_ticker=benchmark_ticker,
                     quantiles=quantile_split,
-                    enable_calendar=input.enable_calendar(),
+                    enable_calendar=enable_cal_val,
                 )
                 progress_state["res"] = res
             except Exception as e:
